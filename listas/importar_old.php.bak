@@ -1,0 +1,326 @@
+<?php
+require_once __DIR__ . '/../config/db.php';
+
+$db = getDB();
+
+// ─── CONFIGURACIÓN GLOBAL ─────────────────────────────────────
+$cfgRows = $db->query("SELECT clave, valor FROM config WHERE clave IN ('url_proveedor','lista_referencia_id')")->fetchAll();
+$cfgMap  = [];
+foreach ($cfgRows as $r) $cfgMap[$r['clave']] = $r['valor'];
+
+$url        = trim($cfgMap['url_proveedor']       ?? '');
+$listaRefId = (int)($cfgMap['lista_referencia_id'] ?? 0);
+
+if (!$url || !$listaRefId) redirect('/attos/listas/?msg=config_missing');
+
+$stmt = $db->prepare("SELECT * FROM listas WHERE id = ?");
+$stmt->execute([$listaRefId]);
+$listaRef = $stmt->fetch();
+if (!$listaRef) redirect('/attos/listas/?msg=config_missing');
+
+$margenRef   = (float)$listaRef['margen'];
+$todasListas = $db->query("SELECT * FROM listas")->fetchAll();
+
+// ─── FETCH ────────────────────────────────────────────────────
+function fetchUrl(string $url): ?string {
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 5,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            CURLOPT_HTTPHEADER     => ['Accept: text/csv, text/plain, text/html, */*'],
+        ]);
+        $raw  = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return ($raw !== false && $code === 200) ? $raw : null;
+    }
+    $ctx = stream_context_create(['http' => [
+        'timeout'    => 20,
+        'user_agent' => 'Mozilla/5.0',
+    ]]);
+    $raw = @file_get_contents($url, false, $ctx);
+    return $raw !== false ? $raw : null;
+}
+
+// ─── DETECCIÓN DE COLUMNAS ────────────────────────────────────
+function detectarColumna(array $headers, array $candidatos): int {
+    foreach ($headers as $i => $h) {
+        $hl = strtolower(trim(preg_replace('/\s+/', ' ', $h)));
+        foreach ($candidatos as $c) {
+            if ($hl === $c || strpos($hl, $c) === 0) return $i;
+        }
+    }
+    return -1;
+}
+
+// ─── PARSEO CSV ───────────────────────────────────────────────
+function parsearCSV(string $raw): array {
+    $raw   = str_replace(["\r\n", "\r"], "\n", $raw);
+    $lines = array_values(array_filter(array_map('trim', explode("\n", $raw))));
+    if (count($lines) < 2) return [];
+
+    $primera = $lines[0];
+    $sep     = (substr_count($primera, ';') >= substr_count($primera, ',')) ? ';' : ',';
+
+    $rows = [];
+    foreach ($lines as $line) {
+        if (trim($line) === '') continue;
+        $rows[] = str_getcsv($line, $sep);
+    }
+    return $rows;
+}
+
+// ─── PARSEO HTML TABLE ────────────────────────────────────────
+function parsearHTML(string $html): array {
+    $html = preg_replace('/<(script|style)[^>]*>.*?<\/\1>/si', '', $html);
+
+    if (!preg_match('/<table[^>]*>(.*?)<\/table>/si', $html, $tm)) return [];
+    preg_match_all('/<tr[^>]*>(.*?)<\/tr>/si', $tm[1], $rowMatches);
+
+    $rows = [];
+    foreach ($rowMatches[1] as $rowHTML) {
+        preg_match_all('/<t[dh][^>]*>(.*?)<\/t[dh]>/si', $rowHTML, $cellMatches);
+        $cells = array_map(fn($c) => trim(html_entity_decode(strip_tags($c))), $cellMatches[1]);
+        if (array_filter($cells)) $rows[] = $cells;
+    }
+    return $rows;
+}
+
+// ─── NORMALIZAR PRECIO ────────────────────────────────────────
+function normalizarPrecio(string $val): float {
+    $val = trim(preg_replace('/[^\d.,]/', '', $val));
+    if (strpos($val, ',') !== false && strpos($val, '.') !== false) {
+        $posComma = strrpos($val, ',');
+        $posDot   = strrpos($val, '.');
+        if ($posComma > $posDot) {
+            $val = str_replace('.', '', $val);
+            $val = str_replace(',', '.', $val);
+        } else {
+            $val = str_replace(',', '', $val);
+        }
+    } elseif (strpos($val, ',') !== false) {
+        $val = str_replace(',', '.', $val);
+    }
+    return (float)$val;
+}
+
+// ─── IMPORTAR ─────────────────────────────────────────────────
+$raw = fetchUrl($url);
+if ($raw === null) redirect('/attos/listas/?msg=fetcherror');
+
+$rows    = [];
+$formato = 'desconocido';
+
+$rawTrim = ltrim($raw);
+if ($rawTrim[0] === '{' || $rawTrim[0] === '[') {
+    $json = json_decode($raw, true);
+    if ($json !== null) {
+        $arr = is_array($json) && isset($json[0]) ? $json : (isset($json['data']) ? $json['data'] : []);
+        if (!empty($arr) && is_array($arr[0])) {
+            foreach ($arr as $item) {
+                $rows[] = array_values($item);
+            }
+        } elseif (!empty($arr) && is_array($arr)) {
+            $rows[] = array_keys((array)$arr[0]);
+            foreach ($arr as $item) {
+                $rows[] = array_values((array)$item);
+            }
+        }
+        $formato = 'JSON';
+    }
+}
+
+if (empty($rows)) {
+    if (stripos($raw, '<table') !== false) {
+        $rows    = parsearHTML($raw);
+        $formato = 'HTML';
+    } else {
+        $rows    = parsearCSV($raw);
+        $formato = 'CSV';
+    }
+}
+
+if (count($rows) < 2) redirect('/attos/listas/?msg=fetcherror');
+
+$headers      = array_map('strval', $rows[0]);
+$colNombre    = detectarColumna($headers, ['nombre', 'descripcion', 'descripción', 'producto', 'detalle', 'art', 'articulo', 'name']);
+$colCodigo    = detectarColumna($headers, ['codigo', 'cod', 'sku', 'art', 'articulo', 'code', 'item', 'cód', 'ref']);
+$colPrecio    = detectarColumna($headers, ['precio', 'costo', 'cost', 'price', 'pvp', 'p.venta', 'prec', 'importe', 'valor']);
+$colUPC       = detectarColumna($headers, ['upc', 'unidades', 'und', 'uds', 'bulto', 'pres', 'x caja']);
+$colMarca     = detectarColumna($headers, ['marca', 'brand', 'fabricante']);
+$colCategoria = detectarColumna($headers, ['categoria', 'cat', 'rubro', 'tipo']);
+
+if ($colNombre === -1) $colNombre = min(1, count($headers) - 1);
+if ($colPrecio === -1) $colPrecio = min(2, count($headers) - 1);
+
+$actualizados    = 0;
+$sinCoincidencia = [];
+$creados         = 0;
+$CODIGOS_PACK    = ['245','2','4','5','6','10','422','2003','1302','13','14','1130','18','16','320','17','242','20','21','11'];
+
+$stmtByCode      = $db->prepare("SELECT id, unidades_por_caja, COALESCE(categoria,'') AS categoria, COALESCE(origen,'url') AS origen FROM productos WHERE codigo = ? AND activo = 1 LIMIT 1");
+$stmtByName      = $db->prepare("SELECT id, unidades_por_caja, COALESCE(categoria,'') AS categoria, COALESCE(origen,'url') AS origen FROM productos WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) AND activo = 1 LIMIT 1");
+$stmtUpsertLP    = $db->prepare("INSERT INTO lista_precios (lista_id, producto_id, costo, costo_caja) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE costo=VALUES(costo), costo_caja=VALUES(costo_caja), updated_at=NOW()");
+$stmtUpdUPC      = $db->prepare("UPDATE productos SET unidades_por_caja = ?, updated_at = NOW() WHERE id = ?");
+$stmtUpdCostoNeto = $db->prepare("UPDATE productos SET costo_neto = ?, updated_at = NOW() WHERE id = ?");
+$stmtInsert      = $db->prepare("INSERT INTO productos (codigo, nombre, marca, categoria, unidades_por_caja) VALUES (?,?,?,?,?)");
+
+for ($i = 1; $i < count($rows); $i++) {
+    $row = $rows[$i];
+    if (count($row) < 2) continue;
+
+    $nombre       = trim($colNombre >= 0 && isset($row[$colNombre]) ? (string)$row[$colNombre] : '');
+    $codigo       = trim($colCodigo >= 0 && isset($row[$colCodigo]) ? (string)$row[$colCodigo] : '');
+    $precioRaw    = $colPrecio >= 0 && isset($row[$colPrecio]) ? (string)$row[$colPrecio] : '0';
+    $upcRaw       = $colUPC    >= 0 && isset($row[$colUPC])    ? (string)$row[$colUPC]    : '';
+    $marcaRaw     = $colMarca     >= 0 && isset($row[$colMarca])     ? trim((string)$row[$colMarca])     : '';
+    $categoriaRaw = $colCategoria >= 0 && isset($row[$colCategoria]) ? trim((string)$row[$colCategoria]) : '';
+
+    if ($nombre === '' && $codigo === '') continue;
+
+    $precioRef = normalizarPrecio($precioRaw);
+    if ($precioRef <= 0) continue;
+
+    $costoNeto = round($precioRef / (1 + $margenRef / 100), 2);
+    $upc       = $upcRaw !== '' ? max(1, (int)normalizarPrecio($upcRaw)) : 0;
+
+    $prodId        = null;
+    $prodUpcAct    = 6;
+    $prodCategoria = $categoriaRaw;
+    $prodOrigen    = 'url';
+
+    if ($codigo !== '') {
+        $stmtByCode->execute([$codigo]);
+        $row2 = $stmtByCode->fetch();
+        if ($row2) {
+            $prodId        = $row2['id'];
+            $prodUpcAct    = (int)$row2['unidades_por_caja'];
+            $prodCategoria = (string)$row2['categoria'];
+            $prodOrigen    = $row2['origen'];
+        }
+    }
+    if (!$prodId && $nombre !== '') {
+        $stmtByName->execute([$nombre]);
+        $row2 = $stmtByName->fetch();
+        if ($row2) {
+            $prodId        = $row2['id'];
+            $prodUpcAct    = (int)$row2['unidades_por_caja'];
+            $prodCategoria = (string)$row2['categoria'];
+            $prodOrigen    = $row2['origen'];
+        }
+    }
+
+    if (!$prodId) {
+        $upcFinal = $upc > 0 ? $upc : 6;
+        $esPack   = in_array($codigo, $CODIGOS_PACK, true) ? 1 : 0;
+        $stmtInsert->execute([$codigo ?: null, $nombre ?: $codigo, $marcaRaw, $categoriaRaw ?: null, $upcFinal]);
+        $prodId     = (int)$db->lastInsertId();
+        $prodUpcAct = $upcFinal;
+        $prodOrigen = 'url';
+        if ($esPack) {
+            $db->prepare("UPDATE productos SET precio_por_pack = 1 WHERE id = ?")->execute([$prodId]);
+        }
+        $sinCoincidencia[] = ($codigo ? "[{$codigo}] " : '') . ($nombre ?: $codigo);
+        $creados++;
+    } elseif ($upc > 0 && $upc !== $prodUpcAct) {
+        $stmtUpdUPC->execute([$upc, $prodId]);
+        $prodUpcAct = $upc;
+    }
+
+    $upcFinal = $upc > 0 ? $upc : $prodUpcAct;
+
+    if ($prodOrigen !== 'manual') {
+        $stmtUpdCostoNeto->execute([$costoNeto, $prodId]);
+    }
+
+    foreach ($todasListas as $l) {
+        $precioLista = round($costoNeto * (1 + (float)$l['margen'] / 100), 2);
+        $stmtUpsertLP->execute([(int)$l['id'], $prodId, $precioLista, $precioLista * $upcFinal]);
+    }
+
+    $actualizados++;
+}
+
+$db->query("UPDATE listas SET ultima_actualizacion = NOW()");
+
+$pageTitle     = 'Importar precios';
+$topbarActions = '<a href="/attos/listas/" class="btn btn-secondary">← Volver</a>';
+require_once __DIR__ . '/../config/layout.php';
+?>
+
+<div class="card" style="max-width:680px;">
+    <div class="card-header">
+        <span class="card-title">Resultado de importación</span>
+    </div>
+    <div class="card-body">
+
+        <?php if ($actualizados > 0 || $creados > 0): ?>
+        <div class="alert alert-success">
+            <strong>Importación completada.</strong>
+            <?php if ($actualizados > 0): ?>
+                Se actualizaron <strong><?= $actualizados ?></strong> producto<?= $actualizados !== 1 ? 's' : '' ?>.
+            <?php endif; ?>
+            <?php if ($creados > 0): ?>
+                Se crearon <strong><?= $creados ?></strong> producto<?= $creados !== 1 ? 's' : '' ?> nuevos.
+            <?php endif; ?>
+        </div>
+        <?php else: ?>
+        <div class="alert alert-warning">
+            No se actualizó ni creó ningún producto. Verificá que la URL sea correcta.
+        </div>
+        <?php endif; ?>
+
+        <table style="width:100%; font-size:13px; margin-top:8px;">
+            <tr>
+                <td class="text-muted">Formato detectado</td>
+                <td><strong><?= e($formato) ?></strong></td>
+            </tr>
+            <tr>
+                <td class="text-muted">Lista de referencia</td>
+                <td><strong><?= e($listaRef['codigo']) ?> (<?= $listaRef['margen'] ?>%)</strong></td>
+            </tr>
+            <tr>
+                <td class="text-muted">Listas actualizadas</td>
+                <td><strong><?= count($todasListas) ?></strong></td>
+            </tr>
+            <tr>
+                <td class="text-muted">Filas procesadas</td>
+                <td><strong><?= count($rows) - 1 ?></strong></td>
+            </tr>
+            <tr>
+                <td class="text-muted">Productos actualizados</td>
+                <td><strong style="color:var(--success);"><?= $actualizados ?></strong></td>
+            </tr>
+            <tr>
+                <td class="text-muted">Productos nuevos creados</td>
+                <td><strong style="color:var(--bordo);"><?= $creados ?></strong></td>
+            </tr>
+            <?php if (!empty($sinCoincidencia)): ?>
+            <tr>
+                <td class="text-muted" style="vertical-align:top; padding-top:8px;">Sin coincidencia</td>
+                <td style="padding-top:8px;">
+                    <?php foreach (array_slice($sinCoincidencia, 0, 15) as $s): ?>
+                        <div style="font-size:12px; color:var(--text-soft);">— <?= e($s) ?></div>
+                    <?php endforeach; ?>
+                    <?php if (count($sinCoincidencia) > 15): ?>
+                        <div style="font-size:12px; color:var(--text-soft);">... y <?= count($sinCoincidencia) - 15 ?> más</div>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <?php endif; ?>
+        </table>
+
+        <div class="form-actions" style="margin-top:20px;">
+            <a href="/attos/listas/" class="btn btn-primary">Volver a Listas</a>
+            <a href="/attos/productos/" class="btn btn-secondary">Ver productos</a>
+        </div>
+    </div>
+</div>
+
+<?php require_once __DIR__ . '/../config/layout_end.php'; ?>

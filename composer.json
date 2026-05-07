@@ -1,0 +1,10 @@
+{
+    "name": "attos/sistema",
+    "description": "Sistema de gestión Attos Distribuidora",
+    "require": {
+        "mpdf/mpdf": "^8.2"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

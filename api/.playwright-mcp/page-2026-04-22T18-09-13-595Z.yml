@@ -1,0 +1,112 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: ATTOS
+      - generic [ref=e6]: Distribuidora
+    - navigation [ref=e7]:
+      - generic [ref=e8]: Principal
+      - link "▦ Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /attos/index.php
+        - generic [ref=e10]: ▦
+        - text: Dashboard
+      - generic [ref=e11]: Gestión
+      - link "👤 Clientes" [ref=e12] [cursor=pointer]:
+        - /url: /attos/clientes/
+        - generic [ref=e13]: 👤
+        - text: Clientes
+      - link "📦 Productos" [ref=e14] [cursor=pointer]:
+        - /url: /attos/productos/
+        - generic [ref=e15]: 📦
+        - text: Productos
+      - link "📋 Listas / Márgenes" [ref=e16] [cursor=pointer]:
+        - /url: /attos/listas/
+        - generic [ref=e17]: 📋
+        - text: Listas / Márgenes
+      - generic [ref=e18]: Operaciones
+      - link "🧾 Comprobantes" [ref=e19] [cursor=pointer]:
+        - /url: /attos/comprobantes/
+        - generic [ref=e20]: 🧾
+        - text: Comprobantes
+      - link "📊 Reportes" [ref=e21] [cursor=pointer]:
+        - /url: /attos/reportes/
+        - generic [ref=e22]: 📊
+        - text: Reportes
+      - generic [ref=e23]: Catálogo
+      - link "📄 Generar Catálogo" [ref=e24] [cursor=pointer]:
+        - /url: /attos/catalogo/
+        - generic [ref=e25]: 📄
+        - text: Generar Catálogo
+  - generic [ref=e26]:
+    - generic [ref=e27]:
+      - generic [ref=e28]: Nuevo comprobante
+      - link "← Volver" [ref=e30] [cursor=pointer]:
+        - /url: /attos/comprobantes/
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - generic [ref=e37]: Datos del comprobante
+          - generic [ref=e38]:
+            - generic [ref=e39]:
+              - generic [ref=e40]:
+                - generic [ref=e41]: Número
+                - spinbutton [ref=e42]: "3"
+              - generic [ref=e43]:
+                - generic [ref=e44]: Fecha
+                - textbox [ref=e45]: 2026-04-22
+              - generic [ref=e46]:
+                - generic [ref=e47]: Estado
+                - combobox [ref=e48] [cursor=pointer]:
+                  - option "Borrador"
+                  - option "Emitido" [selected]
+                  - option "Cobrado"
+            - generic [ref=e49]:
+              - generic [ref=e50]:
+                - generic [ref=e51]: Cliente *
+                - combobox [ref=e52] [cursor=pointer]:
+                  - option "— Seleccionar cliente —" [selected]
+                  - option "Felipe Fernández Camillo"
+                  - option "Lorena Landucci"
+                  - option "Mercedes Diotto"
+                  - option "Sebastian Alonso"
+              - generic [ref=e53]:
+                - generic [ref=e54]: Lista de precios *
+                - combobox [ref=e55] [cursor=pointer]:
+                  - option "— Seleccionar lista —" [selected]
+                  - option "L62 — 25.00%"
+                  - option "L56 — 20.00%"
+                  - option "L59 — 15.00%"
+                  - option "L70 — 10.00%"
+            - generic [ref=e56]:
+              - generic [ref=e57]: Notas / observaciones
+              - textbox [ref=e58]
+        - generic [ref=e59]:
+          - generic [ref=e60]:
+            - generic [ref=e61]: Productos
+            - button "+ Agregar producto" [ref=e62] [cursor=pointer]
+          - table [ref=e65]:
+            - rowgroup [ref=e66]:
+              - row "Producto Cajas Unid. Precio/ud Precio/caja Subtotal" [ref=e67]:
+                - columnheader "Producto" [ref=e68]
+                - columnheader "Cajas" [ref=e69]
+                - columnheader "Unid." [ref=e70]
+                - columnheader "Precio/ud" [ref=e71]
+                - columnheader "Precio/caja" [ref=e72]
+                - columnheader "Subtotal" [ref=e73]
+                - columnheader [ref=e74]
+            - rowgroup [ref=e75]:
+              - row "Seleccioná una lista y luego agregá productos." [ref=e76]:
+                - cell "Seleccioná una lista y luego agregá productos." [ref=e77]
+      - generic [ref=e79]:
+        - generic [ref=e81]: Resumen
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]: Subtotal
+            - generic [ref=e85]: $0,00
+          - generic [ref=e86]:
+            - generic [ref=e87]: Envío
+            - spinbutton "Envío" [ref=e88]: "0"
+          - separator [ref=e89]
+          - generic [ref=e90]:
+            - generic [ref=e91]: TOTAL
+            - generic [ref=e92]: $0,00
+          - button "Guardar comprobante" [ref=e94] [cursor=pointer]

@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/xampp/htdocs/Attos/**)",
+      "mcp__mysql-attos__mysql_query",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_snapshot",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost/attos/comprobantes/crear.php\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost/attos/comprobantes/imprimir.php?id=1\")",
+      "Bash(mysql -u root attos -e \"ALTER TABLE comprobantes ADD COLUMN tipo_entrega ENUM\\('envio','retira'\\) NOT NULL DEFAULT 'envio' AFTER envio\")",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root attos -e \"ALTER TABLE comprobantes ADD COLUMN tipo_entrega ENUM\\('envio','retira'\\) NOT NULL DEFAULT 'envio' AFTER envio\")",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root attos -e \"ALTER TABLE productos ADD COLUMN categoria VARCHAR\\(100\\) NULL DEFAULT NULL AFTER marca\")",
+      "Bash(grep -rn \"\\\\$.*\\\\?\" /c/xampp/htdocs/Attos --include=\"*.php\")",
+      "Bash(grep -rn 'real_escape_string\\\\|$_' /c/xampp/htdocs/Attos '--include=*.php')",
+      "Bash(grep -rn 'echo.*$_\\\\|print.*$_' /c/xampp/htdocs/Attos '--include=*.php')",
+      "Bash(grep -rn 'undefined\\\\|null\\\\|$_\\\\[' /c/xampp/htdocs/Attos/comprobantes/crear.php /c/xampp/htdocs/Attos/listas/importar.php)",
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root -e \"ALTER TABLE attos.comprobante_items ADD COLUMN descuento_tipo ENUM\\('ninguno','porcentaje','fijo'\\) NOT NULL DEFAULT 'ninguno' AFTER subtotal, ADD COLUMN descuento_valor DECIMAL\\(12,2\\) NOT NULL DEFAULT 0.00 AFTER descuento_tipo, ADD COLUMN descuento_monto DECIMAL\\(12,2\\) NOT NULL DEFAULT 0.00 AFTER descuento_valor\")",
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root -e \"ALTER TABLE attos.comprobantes ADD COLUMN descuento DECIMAL\\(12,2\\) NOT NULL DEFAULT 0.00 AFTER envio\")",
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root attos -e \"SHOW COLUMNS FROM comprobante_items LIKE 'descuento%'; SHOW COLUMNS FROM comprobantes LIKE 'descuento';\")",
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root attos -e \"ALTER TABLE productos ADD COLUMN precio_por_pack TINYINT\\(1\\) NOT NULL DEFAULT 0 AFTER unidades_por_caja;\")",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root --database=attos -e \"UPDATE productos SET categoria = 'Gaseosas y Energizantes' WHERE marca IN \\('Gaseosas y Energizantes', 'energizante'\\) AND activo = 1;\")",
+      "Bash(mysql -u root attos -e \"UPDATE productos SET precio_por_pack = 1 WHERE id IN \\(1640,1641,1642,1643,1644,1645,1646,1647,1648,1649,1650,1651,1652,1653,1654,1655,1656,1657,1658,1659\\); UPDATE productos SET unidades_por_caja = 12 WHERE id IN \\(1650, 1658\\); SELECT id, nombre, unidades_por_caja, precio_por_pack FROM productos WHERE id IN \\(1640,1641,1642,1643,1644,1645,1646,1647,1648,1649,1650,1651,1652,1653,1654,1655,1656,1657,1658,1659\\) ORDER BY id;\")",
+      "Bash(/c/xampp/mysql/bin/mysql -u root attos -e \"UPDATE productos SET precio_por_pack = 1 WHERE id IN \\(1640,1641,1642,1643,1644,1645,1646,1647,1648,1649,1650,1651,1652,1653,1654,1655,1656,1657,1658,1659\\); UPDATE productos SET unidades_por_caja = 12 WHERE id IN \\(1650, 1658\\); SELECT id, nombre, unidades_por_caja, precio_por_pack FROM productos WHERE id IN \\(1640,1641,1642,1643,1644,1645,1646,1647,1648,1649,1650,1651,1652,1653,1654,1655,1656,1657,1658,1659\\) ORDER BY id;\")",
+      "Bash(C:/xampp/mysql/bin/mysql.exe -u root --database=attos -e ' *)",
+      "Bash(\"C:/xampp/mysql/bin/mysql.exe\" -u root -h 127.0.0.1 --port=3306 attos -e \"SHOW INDEX FROM productos; SHOW INDEX FROM lista_precios;\")",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root attos -e \"ALTER TABLE listas DROP COLUMN url_actualizacion;\")",
+      "Bash(\"c:/xampp/mysql/bin/mysql.exe\" -u root attos -e \"SHOW COLUMNS FROM listas;\")",
+      "Read(//c/xampp/php/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\xampp\\htdocs\\Attos"
+    ]
+  }
+}
