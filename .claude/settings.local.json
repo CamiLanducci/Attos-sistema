@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r 'session\\\\|$_SESSION\\\\|login\\\\|auth' ./index.php './config/*.php')",
+      "Bash(C:\\\\xampp\\\\php\\\\php.exe *)",
+      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root attos -e \"SHOW COLUMNS FROM comprobantes LIKE 'creado_por'; SHOW COLUMNS FROM pedidos_galpon LIKE 'creado_por'; SHOW COLUMNS FROM movimientos_cuenta LIKE 'creado_por';\" 2>&1)",
+      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root attos -e \"SELECT id, nombre_real, usuario, rol, activo, last_login FROM usuarios;\")",
+      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root attos -e \"ALTER TABLE comprobantes ADD COLUMN tipo_entrega ENUM\\('envio','retira'\\) NOT NULL DEFAULT 'envio' AFTER envio;\" 2>&1; Write-Output \"Exit: $LASTEXITCODE\")",
+      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root attos -e \"SHOW COLUMNS FROM comprobantes LIKE 'tipo_entrega';\")"
+    ]
+  }
+}

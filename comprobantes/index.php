@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/auth.php';
 $pageTitle     = 'Comprobantes';
 $topbarActions = '<a href="/attos/comprobantes/crear.php" class="btn btn-primary">+ Nuevo comprobante</a>';
 

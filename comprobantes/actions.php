@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/auth.php';
 
 $db     = getDB();
 $action = $_POST['action'] ?? ($_GET['action'] ?? '');
@@ -28,8 +29,8 @@ if ($action === 'create') {
     $db->beginTransaction();
     try {
         // Insertar encabezado con totales en 0; se actualizan al final con valores calculados en servidor
-        $stmt = $db->prepare("INSERT INTO comprobantes (numero, fecha, cliente_id, lista_id, estado, notas, envio, tipo_entrega, subtotal, total) VALUES (?,?,?,?,?,?,?,?,?,?)");
-        $stmt->execute([$numero, $fecha, $cliente_id, $lista_id, $estado, $notas, $envio, $tipo_entrega, 0, 0]);
+        $stmt = $db->prepare("INSERT INTO comprobantes (numero, fecha, cliente_id, lista_id, estado, notas, envio, tipo_entrega, subtotal, total, creado_por) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+        $stmt->execute([$numero, $fecha, $cliente_id, $lista_id, $estado, $notas, $envio, $tipo_entrega, 0, 0, $_SESSION['usuario_id']]);
         $compId = $db->lastInsertId();
 
         $stmtItem = $db->prepare("
@@ -200,8 +201,8 @@ if ($action === 'update') {
         $allowed = ['borrador', 'emitido', 'cobrado'];
         $estadoFinal = in_array($estado, $allowed) ? $estado : 'borrador';
 
-        $db->prepare("UPDATE comprobantes SET fecha=?, cliente_id=?, lista_id=?, estado=?, notas=?, envio=?, tipo_entrega=?, subtotal=?, descuento=?, total=? WHERE id=?")
-           ->execute([$fecha, $cliente_id, $lista_id, $estadoFinal, $notas, $envio, $tipo_entrega, $subtotalCalculado, $descuentoTotal, $totalCalculado, $id]);
+        $db->prepare("UPDATE comprobantes SET fecha=?, cliente_id=?, lista_id=?, estado=?, notas=?, envio=?, tipo_entrega=?, subtotal=?, descuento=?, total=?, modificado_por=? WHERE id=?")
+           ->execute([$fecha, $cliente_id, $lista_id, $estadoFinal, $notas, $envio, $tipo_entrega, $subtotalCalculado, $descuentoTotal, $totalCalculado, $_SESSION['usuario_id'], $id]);
 
         $db->commit();
         redirect('/attos/comprobantes/ver.php?id=' . $id . '&msg=updated');

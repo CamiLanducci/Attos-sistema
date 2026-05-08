@@ -1,5 +1,6 @@
 <?php
 // Incluir desde cualquier módulo: require_once __DIR__ . '/../config/layout.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
 $base = str_repeat('../', substr_count($_SERVER['SCRIPT_NAME'], '/') - 2);
 
 function navLink(string $href, string $icon, string $label, string $current): string {
@@ -40,6 +41,19 @@ function navLink(string $href, string $icon, string $label, string $current): st
             <div class="nav-section">Catálogo</div>
             <?= navLink('/attos/catalogo/', '📄', 'Generar Catálogo', 'catalogo') ?>
         </nav>
+        <div style="padding:14px 16px; border-top:1px solid rgba(255,255,255,.15);">
+            <div style="font-size:10px; text-transform:uppercase; letter-spacing:.6px; opacity:.55; margin-bottom:3px;">Administrador</div>
+            <div style="font-size:14px; font-weight:700; margin-bottom:10px;"><?= e($_SESSION['nombre_real'] ?? 'Usuario') ?></div>
+            <a href="/attos/logout.php"
+               style="display:block; text-align:center; padding:7px 0; background:rgba(255,255,255,.13);
+                      border:1px solid rgba(255,255,255,.18); border-radius:6px; font-size:12px;
+                      font-weight:600; text-decoration:none; letter-spacing:.3px; opacity:.9;
+                      transition:background .15s;"
+               onmouseover="this.style.background='rgba(255,255,255,.22)'"
+               onmouseout="this.style.background='rgba(255,255,255,.13)'">
+                Cerrar sesión
+            </a>
+        </div>
     </aside>
     <div class="main">
         <div class="topbar">

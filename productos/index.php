@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/auth.php';
 $pageTitle     = 'Productos';
 $topbarActions = '<a href="/attos/productos/form.php" class="btn btn-secondary btn-sm">+ Agregar manual</a>';
 

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/auth.php';
 $pageTitle = 'Clientes';
 $topbarActions = '<a href="/attos/clientes/form.php" class="btn btn-primary">+ Nuevo cliente</a>';
 

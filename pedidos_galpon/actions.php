@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/auth.php';
 
 $db     = getDB();
 $action = $_POST['action'] ?? ($_GET['action'] ?? '');
@@ -19,9 +20,9 @@ if ($action === 'create') {
     $db->beginTransaction();
     try {
         $db->prepare("
-            INSERT INTO pedidos_galpon (proveedor_id, fecha_pedido, observaciones, total)
-            VALUES (?,?,?,?)
-        ")->execute([$proveedorId, $fechaPedido, $observaciones ?: null, $total]);
+            INSERT INTO pedidos_galpon (proveedor_id, fecha_pedido, observaciones, total, creado_por)
+            VALUES (?,?,?,?,?)
+        ")->execute([$proveedorId, $fechaPedido, $observaciones ?: null, $total, $_SESSION['usuario_id']]);
         $pedidoId = $db->lastInsertId();
 
         $stmtItem = $db->prepare("
@@ -68,8 +69,8 @@ if ($action === 'update') {
     $db->beginTransaction();
     try {
         $db->prepare("
-            UPDATE pedidos_galpon SET proveedor_id=?, fecha_pedido=?, observaciones=?, total=? WHERE id=?
-        ")->execute([$proveedorId, $fechaPedido, $observaciones ?: null, $total, $id]);
+            UPDATE pedidos_galpon SET proveedor_id=?, fecha_pedido=?, observaciones=?, total=?, modificado_por=? WHERE id=?
+        ")->execute([$proveedorId, $fechaPedido, $observaciones ?: null, $total, $_SESSION['usuario_id'], $id]);
 
         $db->prepare("DELETE FROM pedidos_galpon_items WHERE pedido_id=?")->execute([$id]);
 

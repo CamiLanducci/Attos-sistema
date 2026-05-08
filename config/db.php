@@ -1,19 +1,98 @@
 <?php
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'attos');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_CHARSET', 'utf8mb4');
+/**
+ * ATTOS — Database Configuration
+ * 
+ * Soporta múltiples entornos (desarrollo, staging, producción)
+ * mediante variables de entorno (.env.local / .env.production)
+ */
 
+// ─── CARGA DE VARIABLES DE ENTORNO ──────────────────────────
+function loadEnvironment(): void {
+    // Detectar ruta del proyecto
+    $rootPath = dirname(__DIR__);
+    
+    // Prioridad: .env.local > .env.production > valores por defecto
+    $envFile = null;
+    if (file_exists($rootPath . '/.env.local')) {
+        $envFile = $rootPath . '/.env.local';
+    } elseif (file_exists($rootPath . '/.env')) {
+        $envFile = $rootPath . '/.env';
+    }
+    
+    // Cargar archivo .env si existe
+    if ($envFile && !getenv('_ENV_LOADED')) {
+        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            if ($line[0] !== '#' && strpos($line, '=') !== false) {
+                list($key, $value) = explode('=', $line, 2);
+                $key = trim($key);
+                $value = trim($value, '\'"');
+                if (!getenv($key)) {
+                    putenv("$key=$value");
+                }
+            }
+        }
+        putenv('_ENV_LOADED=1');
+    }
+}
+
+// Cargar variables de entorno
+loadEnvironment();
+
+// ─── DEFINICIONES DE CONFIGURACIÓN ──────────────────────────
+const APP_ENV = 'APP_ENV';
+const DB_HOST_ENV = 'DB_HOST';
+const DB_PORT_ENV = 'DB_PORT';
+const DB_NAME_ENV = 'DB_NAME';
+const DB_USER_ENV = 'DB_USER';
+const DB_PASS_ENV = 'DB_PASS';
+const DB_CHARSET_ENV = 'DB_CHARSET';
+const BASE_URL_ENV = 'BASE_URL';
+
+// Valores por defecto
+define('DB_HOST', getenv(DB_HOST_ENV) ?: 'localhost');
+define('DB_PORT', getenv(DB_PORT_ENV) ?: '3306');
+define('DB_NAME', getenv(DB_NAME_ENV) ?: 'attos');
+define('DB_USER', getenv(DB_USER_ENV) ?: 'root');
+define('DB_PASS', getenv(DB_PASS_ENV) ?: '');
+define('DB_CHARSET', getenv(DB_CHARSET_ENV) ?: 'utf8mb4');
+define('BASE_URL', getenv(BASE_URL_ENV) ?: 'http://localhost/Attos');
+define('APP_ENVIRONMENT', getenv(APP_ENV) ?: 'development');
+
+// ─── VALIDACIÓN DE CONFIGURACIÓN ────────────────────────────
+if (APP_ENVIRONMENT === 'production') {
+    if (empty(DB_PASS)) {
+        throw new RuntimeException(
+            'ERROR: En producción, DB_PASS debe estar configurada en .env'
+        );
+    }
+}
+
+/**
+ * Obtiene la conexión PDO singleton a la base de datos
+ * 
+ * @return PDO
+ * @throws PDOException si la conexión falla
+ */
 function getDB(): PDO {
     static $pdo = null;
     if ($pdo === null) {
-        $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
-        $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-        ]);
+        $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
+        try {
+            $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+                PDO::ATTR_TIMEOUT            => 10,
+            ]);
+        } catch (PDOException $e) {
+            if (APP_ENVIRONMENT === 'development') {
+                throw new PDOException('Error de conexión: ' . $e->getMessage());
+            } else {
+                // En producción, no revelar detalles de error
+                throw new PDOException('Error de conexión a la base de datos');
+            }
+        }
     }
     return $pdo;
 }

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/auth.php';
 
 $db     = getDB();
 $action = $_POST['action'] ?? ($_GET['action'] ?? '');
@@ -19,18 +20,18 @@ if ($action === 'pago') {
     try {
         // Movimiento A: pago en la cuenta destino
         $stmtA = $db->prepare("
-            INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion)
-            VALUES (?, ?, 'pago', ?, ?)
+            INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, creado_por)
+            VALUES (?, ?, 'pago', ?, ?, ?)
         ");
-        $stmtA->execute([$fecha, $cuenta, $monto, $desc]);
+        $stmtA->execute([$fecha, $cuenta, $monto, $desc, $_SESSION['usuario_id']]);
         $idA = $db->lastInsertId();
 
         // Movimiento B: pago en Patrimonio (sale plata del usuario)
         $stmtB = $db->prepare("
-            INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, movimiento_par_id)
-            VALUES (?, 'patrimonio', 'pago', ?, ?, ?)
+            INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, movimiento_par_id, creado_por)
+            VALUES (?, 'patrimonio', 'pago', ?, ?, ?, ?)
         ");
-        $stmtB->execute([$fecha, $monto, $desc, $idA]);
+        $stmtB->execute([$fecha, $monto, $desc, $idA, $_SESSION['usuario_id']]);
         $idB = $db->lastInsertId();
 
         // Cruzar referencias
@@ -60,9 +61,9 @@ if ($action === 'crear_movimiento') {
 
     try {
         $db->prepare("
-            INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, pedido_galpon_id, comprobante_id)
-            VALUES (?,?,?,?,?,?,?)
-        ")->execute([$fecha, $cuenta, $tipo, $monto, $desc, $pedId, $compId]);
+            INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, pedido_galpon_id, comprobante_id, creado_por)
+            VALUES (?,?,?,?,?,?,?,?)
+        ")->execute([$fecha, $cuenta, $tipo, $monto, $desc, $pedId, $compId, $_SESSION['usuario_id']]);
         redirect('/attos/cuentas/?msg=creado');
     } catch (Exception $e) {
         redirect('/attos/cuentas/crear_movimiento.php?msg=error');

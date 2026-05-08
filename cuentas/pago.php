@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/auth.php';
 $pageTitle     = 'Registrar pago a galpón / Alfre';
 $topbarActions = '<a href="/attos/cuentas/" class="btn btn-secondary">← Volver</a>';
 
