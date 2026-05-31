@@ -105,6 +105,19 @@ require_once __DIR__ . '/../config/layout.php';
     </div>
 </div>
 
+<!-- ── Catálogo Reducido con Fotos ─────────────────────────────────────── -->
+<div class="card" style="max-width:560px; margin-top:18px;">
+    <div class="card-header"><span class="card-title">Catálogo Reducido con Fotos</span></div>
+    <div class="card-body">
+        <p style="font-size:13px; color:#666; margin-bottom:16px; line-height:1.6;">
+            Generá un catálogo visual premium para un lote de 120–130 productos seleccionados.
+            Subís las fotos (<code>CODIGO_nombre.jpg</code>) y el sistema vincula automáticamente
+            cada imagen con su precio en la base de datos.
+        </p>
+        <a href="/attos/catalogo/reducido.php" class="btn btn-primary">Ir al Catálogo Reducido →</a>
+    </div>
+</div>
+
 <script>
 function toggleFiltro() {
     const filtrado = document.querySelector('input[name="tipo"][value="filtrado"]').checked;
