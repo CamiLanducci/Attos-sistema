@@ -111,9 +111,11 @@ foreach ($productos as $p) {
 uksort($byMarca, fn($a, $b) => mb_strtolower($a, 'UTF-8') <=> mb_strtolower($b, 'UTF-8'));
 
 // ── Fechas ─────────────────────────────────────────────────────────────────────
-$meses       = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-$fechaPortada = intval(date('j')) . ' de ' . $meses[intval(date('n')) - 1] . ' de ' . date('Y');
-$fechaHeader  = date('d/m/Y');
+// fechaPublica: solo mes+año para documentos que ve el cliente (sin día exacto)
+$meses        = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+$fechaPublica = 'Precios - ' . $meses[intval(date('n')) - 1] . ' ' . date('Y');
+$fechaPortada = $fechaPublica;
+$fechaHeader  = $fechaPublica;
 $listaLabel   = $esFiltrado ? 'Selección Premium' : '';
 
 // ── Logo ───────────────────────────────────────────────────────────────────────
@@ -438,7 +440,7 @@ table.prods tbody td {
     <table width="40mm" cellpadding="0" cellspacing="0" style="margin:0 auto 8mm; border-top:0.3mm solid #E0D8CE;"><tr><td></td></tr></table>
     <div class="backcover-disclaimer">
         Los precios son en pesos argentinos e incluyen IVA.<br>
-        Sujetos a modificación sin previo aviso.<br><br>
+        Los precios están sujetos a cambios sin previo aviso.<br><br>
         Para consultar precios de productos marcados como "Consultar",<br>
         contactanos directamente.
     </div>

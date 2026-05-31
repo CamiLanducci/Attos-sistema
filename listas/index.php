@@ -40,9 +40,9 @@ require_once __DIR__ . '/../config/layout.php';
 
         <?php if ($l['ultima_actualizacion']): ?>
         <div class="lista-stat" style="margin-bottom:12px;">
-            <span class="lista-stat-label">Última actualización</span>
+            <span class="lista-stat-label">Última actualización del sistema</span>
             <span style="font-size:12px; color:var(--success); font-weight:600;">
-                <?= date('d/m/Y H:i', strtotime($l['ultima_actualizacion'])) ?>
+                <?= date('d/m/Y', strtotime($l['ultima_actualizacion'])) ?> a las <?= date('H:i', strtotime($l['ultima_actualizacion'])) ?>
             </span>
         </div>
         <?php else: ?>

@@ -47,7 +47,7 @@ $topbarActions = $editMode
 $lastNum = $db->query("SELECT MAX(numero) FROM comprobantes")->fetchColumn();
 $nextNum = ($lastNum ?? 0) + 1;
 
-$clientes = $db->query("SELECT id, nombre FROM clientes WHERE activo=1 ORDER BY nombre ASC")->fetchAll();
+$clientes = $db->query("SELECT id, nombre, lista_id FROM clientes WHERE activo=1 ORDER BY nombre ASC")->fetchAll();
 $listas   = $db->query("SELECT * FROM listas ORDER BY margen DESC")->fetchAll();
 
 $margenPorLista = [];
@@ -130,6 +130,7 @@ require_once __DIR__ . '/../config/layout.php';
                             <option value="">— Seleccionar cliente —</option>
                             <?php foreach ($clientes as $cl): ?>
                                 <option value="<?= $cl['id'] ?>"
+                                    data-lista="<?= (int)($cl['lista_id'] ?? 0) ?>"
                                     <?= ($editMode && (int)$cl['id'] === (int)$editComp['cliente_id']) ? 'selected' : '' ?>>
                                     <?= e($cl['nombre']) ?>
                                 </option>
@@ -635,6 +636,15 @@ document.addEventListener('DOMContentLoaded', () => {
             EDIT_ITEMS.forEach(item => precargarItem(item));
         }
     }
+
+    document.getElementById('sel-cliente').addEventListener('change', function () {
+        const listaCliente = parseInt(this.selectedOptions[0]?.dataset.lista) || 0;
+        const selLista = document.getElementById('sel-lista');
+        if (listaCliente && selLista.value === '') {
+            selLista.value = listaCliente;
+            actualizarPrecios();
+        }
+    });
 });
 </script>
 
