@@ -1,4 +1,6 @@
 /vendor
 *.log
-.env
+.env*
 phpmyadmin/
+
+
