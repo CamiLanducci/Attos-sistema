@@ -13,3 +13,4 @@ if (empty($_SESSION['usuario_id'])) {
     header('Location: ' . $redir);
     exit;
 }
+session_write_close(); // Release file lock; $_SESSION stays readable in memory
