@@ -1,10 +1,10 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
 $db = getDB();
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-if (!$id) redirect('/attos/pedidos_galpon/');
+if (!$id) redirect(BASE_PATH . '/pedidos_galpon/');
 
 $stmt = $db->prepare("
     SELECT pg.*, pv.nombre AS proveedor_nombre
@@ -14,7 +14,7 @@ $stmt = $db->prepare("
 ");
 $stmt->execute([$id]);
 $pedido = $stmt->fetch();
-if (!$pedido) redirect('/attos/pedidos_galpon/');
+if (!$pedido) redirect(BASE_PATH . '/pedidos_galpon/');
 
 $items = $db->prepare("SELECT * FROM pedidos_galpon_items WHERE pedido_id=? ORDER BY id ASC");
 $items->execute([$id]);
@@ -37,9 +37,9 @@ $msg = $_GET['msg'] ?? '';
 
 $pageTitle     = 'Pedido #' . $id;
 $topbarActions = '
-    <a href="/attos/pedidos_galpon/" class="btn btn-secondary">← Volver</a>'
-    . ($esBorrador ? ' <a href="/attos/pedidos_galpon/crear.php?id=' . $id . '" class="btn btn-outline">Editar</a>' : '')
-    . ' <a href="/attos/pedidos_galpon/imagen.php?id=' . $id . '" class="btn btn-outline" target="_blank">🖼 Imagen</a>';
+    <a href="' . BASE_PATH . '/pedidos_galpon/" class="btn btn-secondary">← Volver</a>'
+    . ($esBorrador ? ' <a href="' . BASE_PATH . '/pedidos_galpon/crear.php?id=' . $id . '" class="btn btn-outline">Editar</a>' : '')
+    . ' <a href="' . BASE_PATH . '/pedidos_galpon/imagen.php?id=' . $id . '" class="btn btn-outline" target="_blank">🖼 Imagen</a>';
 
 require_once __DIR__ . '/../config/layout.php';
 ?>
@@ -164,14 +164,14 @@ require_once __DIR__ . '/../config/layout.php';
         <div class="card">
             <div class="card-header"><span class="card-title">Acciones</span></div>
             <div class="card-body">
-                <form method="POST" action="/attos/pedidos_galpon/actions.php"
+                <form method="POST" action="<?= BASE_PATH ?>/pedidos_galpon/actions.php"
                       onsubmit="return confirm('¿Marcar como enviado al proveedor? Ya no podrás editarlo.')">
                     <input type="hidden" name="action" value="enviar">
                     <input type="hidden" name="id" value="<?= $id ?>">
                     <button type="submit" class="btn btn-primary w-100">✈ Marcar como enviado</button>
                 </form>
                 <div style="margin-top:8px;">
-                    <a href="/attos/pedidos_galpon/actions.php?action=delete&id=<?= $id ?>"
+                    <a href="<?= BASE_PATH ?>/pedidos_galpon/actions.php?action=delete&id=<?= $id ?>"
                        class="btn btn-danger w-100"
                        data-confirm="¿Eliminar este pedido?">Eliminar pedido</a>
                 </div>
@@ -183,7 +183,7 @@ require_once __DIR__ . '/../config/layout.php';
         <div class="card">
             <div class="card-header"><span class="card-title">Registrar recepción</span></div>
             <div class="card-body">
-                <form method="POST" action="/attos/pedidos_galpon/actions.php"
+                <form method="POST" action="<?= BASE_PATH ?>/pedidos_galpon/actions.php"
                       onsubmit="return confirm('¿Confirmar recepción? El pedido quedará bloqueado.')">
                     <input type="hidden" name="action" value="recibir">
                     <input type="hidden" name="id" value="<?= $id ?>">
@@ -224,7 +224,7 @@ require_once __DIR__ . '/../config/layout.php';
             <div class="card-body text-muted" style="font-size:13px;">
                 Pedido <strong>recibido</strong>.<br><br>
                 La deuda con el proveedor se registra en
-                <a href="/attos/cuentas/" class="text-bordo">Cuentas</a>.
+                <a href="<?= BASE_PATH ?>/cuentas/" class="text-bordo">Cuentas</a>.
             </div>
         </div>
         <?php endif; ?>

@@ -1,10 +1,10 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
 $db = getDB();
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-if (!$id) redirect('/attos/pedidos_galpon/');
+if (!$id) redirect(BASE_PATH . '/pedidos_galpon/');
 
 $stmt = $db->prepare("
     SELECT pg.*, pv.nombre AS proveedor_nombre
@@ -14,7 +14,7 @@ $stmt = $db->prepare("
 ");
 $stmt->execute([$id]);
 $pedido = $stmt->fetch();
-if (!$pedido) redirect('/attos/pedidos_galpon/');
+if (!$pedido) redirect(BASE_PATH . '/pedidos_galpon/');
 
 $items = $db->prepare("SELECT * FROM pedidos_galpon_items WHERE pedido_id=? ORDER BY id ASC");
 $items->execute([$id]);

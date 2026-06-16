@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -36,9 +36,9 @@ if ($editMode) {
     $st = $db->prepare("SELECT * FROM pedidos_galpon WHERE id=?");
     $st->execute([$editId]);
     $editPed = $st->fetch();
-    if (!$editPed) redirect('/attos/pedidos_galpon/');
+    if (!$editPed) redirect(BASE_PATH . '/pedidos_galpon/');
     if ($editPed['estado_pedido'] !== 'borrador') {
-        redirect('/attos/pedidos_galpon/ver.php?id=' . $editId . '&msg=no_editable');
+        redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $editId . '&msg=no_editable');
     }
     $stItems = $db->prepare("SELECT * FROM pedidos_galpon_items WHERE pedido_id=? ORDER BY id ASC");
     $stItems->execute([$editId]);
@@ -80,13 +80,13 @@ $comprobantesEmitidos = $db->query("
 
 $pageTitle     = $editMode ? 'Editar pedido #' . $editId : 'Nuevo pedido al proveedor';
 $topbarActions = $editMode
-    ? '<a href="/attos/pedidos_galpon/ver.php?id=' . $editId . '" class="btn btn-secondary">← Volver</a>'
-    : '<a href="/attos/pedidos_galpon/" class="btn btn-secondary">← Volver</a>';
+    ? '<a href="' . BASE_PATH . '/pedidos_galpon/ver.php?id=' . $editId . '" class="btn btn-secondary">← Volver</a>'
+    : '<a href="' . BASE_PATH . '/pedidos_galpon/" class="btn btn-secondary">← Volver</a>';
 
 require_once __DIR__ . '/../config/layout.php';
 ?>
 
-<form method="POST" action="/attos/pedidos_galpon/actions.php" id="form-pedido" onsubmit="return validarForm()">
+<form method="POST" action="<?= BASE_PATH ?>/pedidos_galpon/actions.php" id="form-pedido" onsubmit="return validarForm()">
 <input type="hidden" name="action" value="<?= $editMode ? 'update' : 'create' ?>">
 <?php if ($editMode): ?><input type="hidden" name="id" value="<?= $editId ?>"><?php endif; ?>
 
@@ -105,7 +105,7 @@ require_once __DIR__ . '/../config/layout.php';
                         <label class="form-label">Proveedor *</label>
                         <?php if (empty($proveedores)): ?>
                         <div class="alert" style="background:#fef3cd; color:#856404; padding:8px 12px; border-radius:4px; font-size:13px;">
-                            No hay proveedores. <a href="/attos/pedidos_galpon/proveedores.php" class="text-bordo">Agregá uno primero →</a>
+                            No hay proveedores. <a href="<?= BASE_PATH ?>/pedidos_galpon/proveedores.php" class="text-bordo">Agregá uno primero →</a>
                         </div>
                         <?php else: ?>
                         <div style="display:flex; gap:8px; align-items:center;">
@@ -118,7 +118,7 @@ require_once __DIR__ . '/../config/layout.php';
                                 </option>
                                 <?php endforeach; ?>
                             </select>
-                            <a href="/attos/pedidos_galpon/proveedores.php" class="btn btn-sm btn-outline" target="_blank" title="Gestionar proveedores">+</a>
+                            <a href="<?= BASE_PATH ?>/pedidos_galpon/proveedores.php" class="btn btn-sm btn-outline" target="_blank" title="Gestionar proveedores">+</a>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -479,7 +479,7 @@ function importarDesdeComprobante() {
     btn.disabled = true;
     btn.textContent = '…';
 
-    fetch('/attos/pedidos_galpon/crear.php?api=comp_items&comp_id=' + compId)
+    fetch('<?= BASE_PATH ?>/pedidos_galpon/crear.php?api=comp_items&comp_id=' + compId)
         .then(function(r) { return r.json(); })
         .then(function(items) {
             btn.disabled = false;

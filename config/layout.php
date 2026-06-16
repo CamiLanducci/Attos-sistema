@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // Incluir desde cualquier módulo: require_once __DIR__ . '/../config/layout.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
 $base = str_repeat('../', substr_count($_SERVER['SCRIPT_NAME'], '/') - 2);
@@ -16,7 +16,7 @@ function navLink(string $href, string $icon, string $label, string $current): st
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $pageTitle ?? 'Attos' ?> — Sistema</title>
-    <link rel="stylesheet" href="/attos/assets/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
     <?= $extraHead ?? '' ?>
 </head>
 <body>
@@ -28,23 +28,23 @@ function navLink(string $href, string $icon, string $label, string $current): st
         </div>
         <nav class="sidebar-nav">
             <div class="nav-section">Principal</div>
-            <?= navLink('/attos/index.php', '▦', 'Dashboard', 'index') ?>
+            <?= navLink(BASE_PATH . '/index.php', '▦', 'Dashboard', 'index') ?>
             <div class="nav-section">Gestión</div>
-            <?= navLink('/attos/clientes/', '👤', 'Clientes', 'clientes') ?>
-            <?= navLink('/attos/productos/', '📦', 'Productos', 'productos') ?>
-            <?= navLink('/attos/listas/', '📋', 'Listas / Márgenes', 'listas') ?>
+            <?= navLink(BASE_PATH . '/clientes/', '👤', 'Clientes', 'clientes') ?>
+            <?= navLink(BASE_PATH . '/productos/', '📦', 'Productos', 'productos') ?>
+            <?= navLink(BASE_PATH . '/listas/', '📋', 'Listas / Márgenes', 'listas') ?>
             <div class="nav-section">Operaciones</div>
-            <?= navLink('/attos/comprobantes/', '🧾', 'Comprobantes', 'comprobantes') ?>
-            <?= navLink('/attos/pedidos_galpon/', '📦', 'Pedidos galpón', 'pedidos_galpon') ?>
-            <?= navLink('/attos/cuentas/', '💰', 'Cuentas', 'cuentas') ?>
-            <?= navLink('/attos/reportes/', '📊', 'Reportes', 'reportes') ?>
+            <?= navLink(BASE_PATH . '/comprobantes/', '🧾', 'Comprobantes', 'comprobantes') ?>
+            <?= navLink(BASE_PATH . '/pedidos_galpon/', '📦', 'Pedidos galpón', 'pedidos_galpon') ?>
+            <?= navLink(BASE_PATH . '/cuentas/', '💰', 'Cuentas', 'cuentas') ?>
+            <?= navLink(BASE_PATH . '/reportes/', '📊', 'Reportes', 'reportes') ?>
             <div class="nav-section">Catálogo</div>
-            <?= navLink('/attos/catalogo/', '📄', 'Generar Catálogo', 'catalogo') ?>
+            <?= navLink(BASE_PATH . '/catalogo/', '📄', 'Generar Catálogo', 'catalogo') ?>
         </nav>
         <div style="padding:14px 16px; border-top:1px solid rgba(255,255,255,.15);">
             <div style="font-size:10px; text-transform:uppercase; letter-spacing:.6px; opacity:.55; margin-bottom:3px;">Administrador</div>
             <div style="font-size:14px; font-weight:700; margin-bottom:10px;"><?= e($_SESSION['nombre_real'] ?? 'Usuario') ?></div>
-            <a href="/attos/logout.php"
+            <a href="<?= BASE_PATH ?>/logout.php"
                style="display:block; text-align:center; padding:7px 0; background:rgba(255,255,255,.13);
                       border:1px solid rgba(255,255,255,.18); border-radius:6px; font-size:12px;
                       font-weight:600; text-decoration:none; letter-spacing:.3px; opacity:.9;

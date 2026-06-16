@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -15,9 +15,9 @@ if ($editMode) {
     $stmtComp->execute([$editId]);
     $editComp = $stmtComp->fetch();
 
-    if (!$editComp) redirect('/attos/comprobantes/');
+    if (!$editComp) redirect(BASE_PATH . '/comprobantes/');
     if ($editComp['estado'] !== 'borrador') {
-        redirect('/attos/comprobantes/ver.php?id=' . $editId . '&msg=not_borrador');
+        redirect(BASE_PATH . '/comprobantes/ver.php?id=' . $editId . '&msg=not_borrador');
     }
 
     $stmtItems = $db->prepare("
@@ -40,8 +40,8 @@ if ($editMode) {
 
 $pageTitle     = $editMode ? 'Editar comprobante #' . $editComp['numero'] : 'Nuevo comprobante';
 $topbarActions = $editMode
-    ? '<a href="/attos/comprobantes/ver.php?id=' . $editId . '" class="btn btn-secondary">← Volver</a>'
-    : '<a href="/attos/comprobantes/" class="btn btn-secondary">← Volver</a>';
+    ? '<a href="' . BASE_PATH . '/comprobantes/ver.php?id=' . $editId . '" class="btn btn-secondary">← Volver</a>'
+    : '<a href="' . BASE_PATH . '/comprobantes/" class="btn btn-secondary">← Volver</a>';
 
 // ── Datos del form ────────────────────────────────────────────────────────────
 $lastNum = $db->query("SELECT MAX(numero) FROM comprobantes")->fetchColumn();
@@ -90,7 +90,7 @@ foreach ($todosProductos as $p) {
 require_once __DIR__ . '/../config/layout.php';
 ?>
 
-<form method="POST" action="/attos/comprobantes/actions.php" id="form-comp" onsubmit="return validarForm()">
+<form method="POST" action="<?= BASE_PATH ?>/comprobantes/actions.php" id="form-comp" onsubmit="return validarForm()">
 <input type="hidden" name="action" value="<?= $editMode ? 'update' : 'create' ?>">
 <?php if ($editMode): ?>
 <input type="hidden" name="id" value="<?= $editId ?>">

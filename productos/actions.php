@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -9,7 +9,7 @@ if ($action === 'delete' && $id > 0) {
     $db = getDB();
     $stmt = $db->prepare("UPDATE productos SET activo = 0 WHERE id = ?");
     $stmt->execute([$id]);
-    redirect('/attos/productos/?msg=deleted');
+    redirect(BASE_PATH . '/productos/?msg=deleted');
 }
 
-redirect('/attos/productos/');
+redirect(BASE_PATH . '/productos/');

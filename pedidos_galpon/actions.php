@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -14,7 +14,7 @@ if ($action === 'create') {
     $items        = $_POST['items'] ?? [];
 
     if (!$proveedorId || empty($items)) {
-        redirect('/attos/pedidos_galpon/crear.php');
+        redirect(BASE_PATH . '/pedidos_galpon/crear.php');
     }
 
     $db->beginTransaction();
@@ -40,10 +40,10 @@ if ($action === 'create') {
         }
 
         $db->commit();
-        redirect('/attos/pedidos_galpon/ver.php?id=' . $pedidoId . '&msg=created');
+        redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $pedidoId . '&msg=created');
     } catch (Exception $e) {
         $db->rollBack();
-        redirect('/attos/pedidos_galpon/crear.php');
+        redirect(BASE_PATH . '/pedidos_galpon/crear.php');
     }
 }
 
@@ -57,13 +57,13 @@ if ($action === 'update') {
     $items        = $_POST['items'] ?? [];
 
     if (!$id || !$proveedorId || empty($items)) {
-        redirect('/attos/pedidos_galpon/crear.php' . ($id ? '?id=' . $id : ''));
+        redirect(BASE_PATH . '/pedidos_galpon/crear.php' . ($id ? '?id=' . $id : ''));
     }
 
     $chk = $db->prepare("SELECT estado_pedido FROM pedidos_galpon WHERE id=?");
     $chk->execute([$id]);
     if ($chk->fetchColumn() !== 'borrador') {
-        redirect('/attos/pedidos_galpon/ver.php?id=' . $id . '&msg=no_editable');
+        redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $id . '&msg=no_editable');
     }
 
     $db->beginTransaction();
@@ -89,10 +89,10 @@ if ($action === 'update') {
         }
 
         $db->commit();
-        redirect('/attos/pedidos_galpon/ver.php?id=' . $id . '&msg=updated');
+        redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $id . '&msg=updated');
     } catch (Exception $e) {
         $db->rollBack();
-        redirect('/attos/pedidos_galpon/crear.php?id=' . $id);
+        redirect(BASE_PATH . '/pedidos_galpon/crear.php?id=' . $id);
     }
 }
 
@@ -106,7 +106,7 @@ if ($action === 'delete') {
             $db->prepare("DELETE FROM pedidos_galpon WHERE id=?")->execute([$id]);
         }
     }
-    redirect('/attos/pedidos_galpon/?msg=deleted');
+    redirect(BASE_PATH . '/pedidos_galpon/?msg=deleted');
 }
 
 // ── Marcar como enviado (borrador → enviado) ──────────────────────────────────
@@ -119,7 +119,7 @@ if ($action === 'enviar') {
             $db->prepare("UPDATE pedidos_galpon SET estado_pedido='enviado' WHERE id=?")->execute([$id]);
         }
     }
-    redirect('/attos/pedidos_galpon/ver.php?id=' . $id . '&msg=enviado');
+    redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $id . '&msg=enviado');
 }
 
 // ── Registrar recepción (enviado → recibido) ──────────────────────────────────
@@ -130,12 +130,12 @@ if ($action === 'recibir') {
     $totalAjustado  = isset($_POST['total_ajustado']) && $_POST['total_ajustado'] !== ''
                         ? (float)str_replace(',', '.', $_POST['total_ajustado']) : null;
 
-    if (!$id) redirect('/attos/pedidos_galpon/');
+    if (!$id) redirect(BASE_PATH . '/pedidos_galpon/');
 
     $chk = $db->prepare("SELECT estado_pedido FROM pedidos_galpon WHERE id=?");
     $chk->execute([$id]);
     if ($chk->fetchColumn() !== 'enviado') {
-        redirect('/attos/pedidos_galpon/ver.php?id=' . $id . '&msg=no_editable');
+        redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $id . '&msg=no_editable');
     }
 
     $db->beginTransaction();
@@ -177,10 +177,10 @@ if ($action === 'recibir') {
         }
 
         $db->commit();
-        redirect('/attos/pedidos_galpon/ver.php?id=' . $id . '&msg=recibido');
+        redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $id . '&msg=recibido');
     } catch (Exception $e) {
         $db->rollBack();
-        redirect('/attos/pedidos_galpon/ver.php?id=' . $id . '&msg=error');
+        redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $id . '&msg=error');
     }
 }
 
@@ -189,18 +189,18 @@ if ($action === 'pagar') {
     $id        = (int)($_POST['id']         ?? 0);
     $fechaPago = $_POST['fecha_pago']        ?? date('Y-m-d');
 
-    if (!$id) redirect('/attos/pedidos_galpon/');
+    if (!$id) redirect(BASE_PATH . '/pedidos_galpon/');
 
     $chk = $db->prepare("SELECT estado_pedido, estado_pago FROM pedidos_galpon WHERE id=?");
     $chk->execute([$id]);
     $row = $chk->fetch();
     if (!$row || $row['estado_pedido'] !== 'recibido' || $row['estado_pago'] !== 'pendiente') {
-        redirect('/attos/pedidos_galpon/ver.php?id=' . $id . '&msg=no_editable');
+        redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $id . '&msg=no_editable');
     }
 
     $db->prepare("UPDATE pedidos_galpon SET estado_pago='pagado', fecha_pago=? WHERE id=?")
        ->execute([$fechaPago, $id]);
-    redirect('/attos/pedidos_galpon/ver.php?id=' . $id . '&msg=pagado');
+    redirect(BASE_PATH . '/pedidos_galpon/ver.php?id=' . $id . '&msg=pagado');
 }
 
-redirect('/attos/pedidos_galpon/');
+redirect(BASE_PATH . '/pedidos_galpon/');

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 $pageTitle = 'Catálogo Reducido';
@@ -14,7 +14,7 @@ if (($_GET['action'] ?? '') === 'reset') {
         }
     }
     unset($_SESSION['catalogo_reducido_token']);
-    redirect('/attos/catalogo/reducido.php');
+    redirect(BASE_PATH . '/catalogo/reducido.php');
 }
 
 // Generar token de sesión para este lote
@@ -53,7 +53,7 @@ require_once __DIR__ . '/../config/layout.php';
     <div class="card-header" style="display:flex; align-items:center;">
         <span class="card-title">Catálogo Reducido con Fotos</span>
         <?php if ($existingCount > 0): ?>
-        <a href="/attos/catalogo/reducido.php?action=reset"
+        <a href="<?= BASE_PATH ?>/catalogo/reducido.php?action=reset"
            class="btn btn-secondary btn-sm"
            style="margin-left:auto; font-size:11px;"
            onclick="return confirm('¿Borrar las <?= $existingCount ?> imágenes del lote actual y empezar de nuevo?')">
@@ -140,7 +140,7 @@ require_once __DIR__ . '/../config/layout.php';
         </div>
 
         <!-- ─── Formulario de generación ─────────────────────── -->
-        <form method="POST" action="/attos/catalogo/generar_reducido.php" target="_blank" id="formGenerar">
+        <form method="POST" action="<?= BASE_PATH ?>/catalogo/generar_reducido.php" target="_blank" id="formGenerar">
             <input type="hidden" name="batch_token" value="<?= e($batchToken) ?>">
 
             <div class="form-group">
@@ -172,7 +172,7 @@ require_once __DIR__ . '/../config/layout.php';
     'use strict';
 
     const BATCH_SIZE   = 10;
-    const UPLOAD_URL   = '/attos/catalogo/upload_img.php';
+    const UPLOAD_URL   = '<?= BASE_PATH ?>/catalogo/upload_img.php';
     const batchToken   = <?= json_encode($batchToken) ?>;
     const mPdfOk       = <?= json_encode((bool)$mPdfInstalado) ?>;
 

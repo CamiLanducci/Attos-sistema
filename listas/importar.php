@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/_parser_proveedor.php';
@@ -22,7 +22,7 @@ $isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
 if (!$isPost && $step === 'confirm') {
     $todasListas   = $db->query("SELECT * FROM listas ORDER BY margen ASC")->fetchAll();
     $pageTitle     = 'Importar precios';
-    $topbarActions = '<a href="/attos/listas/" class="btn btn-secondary">← Volver</a>';
+    $topbarActions = '<a href="' . BASE_PATH . '/listas/" class="btn btn-secondary">← Volver</a>';
     require_once __DIR__ . '/../config/layout.php';
     ?>
     <div class="card" style="max-width:680px;">
@@ -71,13 +71,13 @@ if (!$isPost && $step === 'confirm') {
             <div class="alert" style="background:#fef3cd; color:#856404; padding:10px 14px; border-radius:4px; margin-bottom:16px; font-size:13px;">
                 Ninguna lista tiene URL configurada. Configurá las URLs en la pantalla de Listas antes de importar.
             </div>
-            <a href="/attos/listas/" class="btn btn-secondary">← Volver a Listas</a>
+            <a href="<?= BASE_PATH ?>/listas/" class="btn btn-secondary">← Volver a Listas</a>
             <?php else: ?>
             <div class="form-actions">
                 <a href="?step=preview" class="btn btn-primary">
                     ↓ Ver cambios de <?= count($listas) ?> lista<?= count($listas) !== 1 ? 's' : '' ?>
                 </a>
-                <a href="/attos/listas/" class="btn btn-secondary">Cancelar</a>
+                <a href="<?= BASE_PATH ?>/listas/" class="btn btn-secondary">Cancelar</a>
             </div>
             <?php endif; ?>
         </div>
@@ -91,7 +91,7 @@ if (!$isPost && $step === 'confirm') {
 // PASO 2 — Descargar, comparar y mostrar preview
 // ══════════════════════════════════════════════════════════════════════════════
 if (!$isPost && $step === 'preview') {
-    if (empty($listas)) redirect('/attos/listas/?msg=config_missing');
+    if (empty($listas)) redirect(BASE_PATH . '/listas/?msg=config_missing');
 
     $previewData = [];
 
@@ -193,7 +193,7 @@ if (!$isPost && $step === 'preview') {
     $_SESSION['import_preview_ts'] = time();
 
     $pageTitle     = 'Revisión de cambios';
-    $topbarActions = '<a href="/attos/listas/importar.php" class="btn btn-secondary">← Cancelar</a>';
+    $topbarActions = '<a href="' . BASE_PATH . '/listas/importar.php" class="btn btn-secondary">← Cancelar</a>';
     require_once __DIR__ . '/../config/layout.php';
 
     $hayAlgo = false;
@@ -371,7 +371,7 @@ if (!$isPost && $step === 'preview') {
                 <?php if ($hayAlgo): ?>
                 <button type="submit" class="btn btn-primary">✓ Confirmar y aplicar listas seleccionadas</button>
                 <?php endif; ?>
-                <a href="/attos/listas/importar.php" class="btn btn-secondary">Cancelar</a>
+                <a href="<?= BASE_PATH ?>/listas/importar.php" class="btn btn-secondary">Cancelar</a>
             </div>
         </div>
     </div>
@@ -391,20 +391,20 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
     $previewTs   = $_SESSION['import_preview_ts'] ?? 0;
 
     if (!$previewData || (time() - $previewTs) > 1800) {
-        redirect('/attos/listas/importar.php?step=confirm&error=expired');
+        redirect(BASE_PATH . '/listas/importar.php?step=confirm&error=expired');
     }
 
     $listasAceptadas = array_map('intval', $_POST['listas_aceptadas'] ?? []);
 
     if (empty($listasAceptadas)) {
-        redirect('/attos/listas/?msg=no_listas');
+        redirect(BASE_PATH . '/listas/?msg=no_listas');
     }
 
     @ob_end_flush();
     @ob_implicit_flush(1);
 
     $pageTitle     = 'Aplicando cambios';
-    $topbarActions = '<a href="/attos/listas/" class="btn btn-secondary">← Volver</a>';
+    $topbarActions = '<a href="' . BASE_PATH . '/listas/" class="btn btn-secondary">← Volver</a>';
     require_once __DIR__ . '/../config/layout.php';
 
     echo '<div class="card" style="max-width:900px;">';
@@ -568,8 +568,8 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 </tbody>
             </table>
             <div class="form-actions" style="margin-top:20px;">
-                <a href="/attos/listas/" class="btn btn-primary">Volver a Listas</a>
-                <a href="/attos/productos/" class="btn btn-secondary">Ver productos</a>
+                <a href="<?= BASE_PATH ?>/listas/" class="btn btn-primary">Volver a Listas</a>
+                <a href="<?= BASE_PATH ?>/productos/" class="btn btn-secondary">Ver productos</a>
             </div>
         </div>
     </div>
@@ -580,4 +580,4 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
 }
 
 // Fallback — redirigir al inicio
-redirect('/attos/listas/importar.php');
+redirect(BASE_PATH . '/listas/importar.php');

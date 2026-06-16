@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -14,10 +14,10 @@ if ($action === 'create') {
             $db->prepare("INSERT INTO listas (codigo, margen) VALUES (?, ?)")
                ->execute([$codigo, $margen]);
         } catch (PDOException $e) {
-            redirect('/attos/listas/?msg=duplicate');
+            redirect(BASE_PATH . '/listas/?msg=duplicate');
         }
     }
-    redirect('/attos/listas/?msg=updated');
+    redirect(BASE_PATH . '/listas/?msg=updated');
 }
 
 // ── Actualizar lista (codigo + url_actualizacion) ─────────────
@@ -34,4 +34,4 @@ if ($id > 0 && $codigo !== '') {
        ->execute([$codigo, $url ?: null, $id]);
 }
 
-redirect('/attos/listas/?msg=updated');
+redirect(BASE_PATH . '/listas/?msg=updated');

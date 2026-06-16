@@ -1,8 +1,8 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 $pageTitle     = 'Comprobantes';
-$topbarActions = '<a href="/attos/comprobantes/crear.php" class="btn btn-primary">+ Nuevo comprobante</a>';
+$topbarActions = '<a href="' . BASE_PATH . '/comprobantes/crear.php" class="btn btn-primary">+ Nuevo comprobante</a>';
 
 $db = getDB();
 
@@ -21,7 +21,7 @@ if ($estado !== '') {
 }
 
 $comprobantes = $db->prepare("
-    SELECT c.id, c.numero, c.fecha, c.total, c.estado,
+    SELECT c.id, c.numero, c.numero_cliente, c.fecha, c.total, c.estado,
            cl.nombre AS cliente,
            l.codigo AS lista, l.margen
     FROM comprobantes c
@@ -75,19 +75,24 @@ require_once __DIR__ . '/../config/layout.php';
                     $cls = $badgeMap[$c['estado']] ?? 'badge-gray';
                 ?>
                 <tr>
-                    <td><strong>#<?= $c['numero'] ?></strong></td>
+                    <td>
+                        <strong>#<?= $c['numero'] ?></strong>
+                        <?php if (!empty($c['numero_cliente'])): ?>
+                        <br><span class="text-muted" style="font-size:11px;">N.° <?= $c['numero_cliente'] ?> del cliente</span>
+                        <?php endif; ?>
+                    </td>
                     <td><?= date('d/m/Y', strtotime($c['fecha'])) ?></td>
                     <td><?= e($c['cliente']) ?></td>
                     <td><span class="badge badge-bordo"><?= e($c['lista']) ?></span></td>
                     <td class="fw-bold"><?= precio((float)$c['total']) ?></td>
                     <td><span class="badge <?= $cls ?>"><?= $c['estado'] ?></span></td>
                     <td class="text-right">
-                        <a href="/attos/comprobantes/ver.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">Ver</a>
+                        <a href="<?= BASE_PATH ?>/comprobantes/ver.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">Ver</a>
                         <?php if ($c['estado'] === 'borrador'): ?>
-                        <a href="/attos/comprobantes/crear.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-outline">Editar</a>
+                        <a href="<?= BASE_PATH ?>/comprobantes/crear.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-outline">Editar</a>
                         <?php endif; ?>
-                        <a href="/attos/comprobantes/imprimir.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-outline" target="_blank">Imprimir</a>
-                        <a href="/attos/comprobantes/actions.php?action=delete&id=<?= $c['id'] ?>"
+                        <a href="<?= BASE_PATH ?>/comprobantes/imprimir.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-outline" target="_blank">Imprimir</a>
+                        <a href="<?= BASE_PATH ?>/comprobantes/actions.php?action=delete&id=<?= $c['id'] ?>"
                            class="btn btn-sm btn-danger"
                            data-confirm="¿Eliminar comprobante #<?= $c['numero'] ?>?">Eliminar</a>
                     </td>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = 'deleted';
         }
     }
-    redirect('/attos/pedidos_galpon/proveedores.php?msg=' . $msg);
+    redirect(BASE_PATH . '/pedidos_galpon/proveedores.php?msg=' . $msg);
 }
 
 $msg    = $_GET['msg'] ?? '';
@@ -51,7 +51,7 @@ $proveedores = $db->query("SELECT * FROM proveedores WHERE activo=1 ORDER BY nom
 $cuentaLabel = ['area_520' => 'Area 520', 'alfre' => 'Cuenta Alfre'];
 
 $pageTitle     = 'Proveedores';
-$topbarActions = '<a href="/attos/pedidos_galpon/" class="btn btn-secondary">← Pedidos galpón</a>';
+$topbarActions = '<a href="' . BASE_PATH . '/pedidos_galpon/" class="btn btn-secondary">← Pedidos galpón</a>';
 require_once __DIR__ . '/../config/layout.php';
 ?>
 
@@ -148,7 +148,7 @@ require_once __DIR__ . '/../config/layout.php';
                         <?= $editProv ? 'Guardar cambios' : 'Agregar proveedor' ?>
                     </button>
                     <?php if ($editProv): ?>
-                    <a href="/attos/pedidos_galpon/proveedores.php" class="btn btn-secondary w-100" style="margin-top:8px;">Cancelar</a>
+                    <a href="<?= BASE_PATH ?>/pedidos_galpon/proveedores.php" class="btn btn-secondary w-100" style="margin-top:8px;">Cancelar</a>
                     <?php endif; ?>
                 </form>
             </div>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/config/db.php';
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -17,4 +17,4 @@ if (!empty($_SESSION['usuario_id'])) {
 
 $_SESSION = [];
 session_destroy();
-redirect('/attos/login.php');
+redirect(BASE_PATH . '/login.php');

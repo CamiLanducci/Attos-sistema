@@ -1,8 +1,8 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 $pageTitle     = 'Registrar pago a galpón / Alfre';
-$topbarActions = '<a href="/attos/cuentas/" class="btn btn-secondary">← Volver</a>';
+$topbarActions = '<a href="' . BASE_PATH . '/cuentas/" class="btn btn-secondary">← Volver</a>';
 
 $msg          = $_GET['msg'] ?? '';
 $cuentaPresel = in_array($_GET['cuenta'] ?? '', ['area_520','alfre']) ? $_GET['cuenta'] : '';
@@ -14,7 +14,7 @@ require_once __DIR__ . '/../config/layout.php';
 <div class="card" style="max-width:500px;">
     <div class="card-header"><span class="card-title">Registrar pago</span></div>
     <div class="card-body">
-        <form method="POST" action="/attos/cuentas/actions.php">
+        <form method="POST" action="<?= BASE_PATH ?>/cuentas/actions.php">
             <input type="hidden" name="action" value="pago">
 
             <div class="form-group">

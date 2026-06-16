@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -42,8 +42,8 @@ $estadoPedBadge = [
 ];
 
 $pageTitle     = 'Pedidos galpón';
-$topbarActions = '<a href="/attos/pedidos_galpon/crear.php" class="btn btn-primary">+ Nuevo pedido</a>
-                  <a href="/attos/pedidos_galpon/proveedores.php" class="btn btn-outline" style="margin-left:6px;">Proveedores</a>';
+$topbarActions = '<a href="' . BASE_PATH . '/pedidos_galpon/crear.php" class="btn btn-primary">+ Nuevo pedido</a>
+                  <a href="' . BASE_PATH . '/pedidos_galpon/proveedores.php" class="btn btn-outline" style="margin-left:6px;">Proveedores</a>';
 require_once __DIR__ . '/../config/layout.php';
 ?>
 
@@ -69,7 +69,7 @@ require_once __DIR__ . '/../config/layout.php';
                 <option value="recibido" <?= $filtroEstadoPed==='recibido' ? 'selected':'' ?>>Recibido</option>
             </select>
             <?php if ($filtroProveedor || $filtroEstadoPed): ?>
-                <a href="/attos/pedidos_galpon/" class="btn btn-secondary btn-sm">✕ Limpiar</a>
+                <a href="<?= BASE_PATH ?>/pedidos_galpon/" class="btn btn-secondary btn-sm">✕ Limpiar</a>
             <?php endif; ?>
         </form>
         <span class="text-muted" style="font-size:12px; margin-left:auto;"><?= count($pedidos) ?> pedido<?= count($pedidos)!==1?'s':'' ?></span>
@@ -78,7 +78,7 @@ require_once __DIR__ . '/../config/layout.php';
     <?php if (empty($pedidos)): ?>
     <div class="empty-state">
         <div class="empty-icon">📦</div>
-        <p>No hay pedidos todavía. <a href="/attos/pedidos_galpon/crear.php" class="text-bordo">Crear el primero</a>.</p>
+        <p>No hay pedidos todavía. <a href="<?= BASE_PATH ?>/pedidos_galpon/crear.php" class="text-bordo">Crear el primero</a>.</p>
     </div>
     <?php else: ?>
     <div class="table-wrap">
@@ -106,7 +106,7 @@ require_once __DIR__ . '/../config/layout.php';
                     <?= $p['total'] !== null ? precio((float)$p['total']) : '—' ?>
                 </td>
                 <td class="text-right">
-                    <a href="/attos/pedidos_galpon/ver.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-secondary">Ver</a>
+                    <a href="<?= BASE_PATH ?>/pedidos_galpon/ver.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-secondary">Ver</a>
                 </td>
             </tr>
             <?php endforeach; ?>

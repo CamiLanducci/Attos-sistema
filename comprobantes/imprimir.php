@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -45,7 +45,7 @@ $est = $comp['estado'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Comprobante N.° <?= str_pad($comp['numero'], 4, '0', STR_PAD_LEFT) ?> — Attos</title>
+    <title>Comprobante N.° <?= str_pad($comp['numero_cliente'] ?? $comp['numero'], 4, '0', STR_PAD_LEFT) ?> — Attos</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -362,12 +362,12 @@ $est = $comp['estado'];
     &nbsp;
     <button class="no-print-btn" onclick="guardarPDF()">📄 Guardar PDF</button>
     &nbsp;&nbsp;
-    <a href="/attos/comprobantes/ver.php?id=<?= $id ?>" style="font-size:13px; color:#631636;">← Volver</a>
+    <a href="<?= BASE_PATH ?>/comprobantes/ver.php?id=<?= $id ?>" style="font-size:13px; color:#631636;">← Volver</a>
 </div>
 <script>
 function guardarPDF() {
     var t = document.title;
-    document.title = 'Comprobante-<?= str_pad($comp['numero'], 4, '0', STR_PAD_LEFT) ?>-<?= $comp['fecha'] ?>';
+    document.title = 'Comprobante-<?= str_pad($comp['numero_cliente'] ?? $comp['numero'], 4, '0', STR_PAD_LEFT) ?>-<?= $comp['fecha'] ?>';
     window.print();
     document.title = t;
 }
@@ -382,7 +382,7 @@ window.onload = function() { window.print(); };
     <div class="header">
         <div class="header-left">
             <div class="logo">
-                <img src="/attos/assets/img/logo.png" alt="Attos">
+                <img src="<?= BASE_PATH ?>/assets/img/logo.png" alt="Attos">
             </div>
             <div class="brand-info">
                 <div class="brand-name">Attos</div>
@@ -394,7 +394,7 @@ window.onload = function() { window.print(); };
         </div>
         <div class="header-right">
             <div class="doc-label">Pedido / Comprobante</div>
-            <div class="doc-num">N.° <?= str_pad($comp['numero'], 4, '0', STR_PAD_LEFT) ?></div>
+            <div class="doc-num">N.° <?= str_pad($comp['numero_cliente'] ?? $comp['numero'], 4, '0', STR_PAD_LEFT) ?></div>
             <div class="doc-date"><?= date('d/m/Y', strtotime($comp['fecha'])) ?></div>
             <div class="doc-estado"><?= $estadoLabel[$est] ?? $est ?></div>
         </div>
@@ -421,7 +421,7 @@ window.onload = function() { window.print(); };
             <div class="info-block-label">Detalles</div>
             <div class="info-block-detail">
                 <strong>Fecha:</strong> <?= date('d \d\e F \d\e Y', strtotime($comp['fecha'])) ?><br>
-                <strong>N.° de pedido:</strong> <?= str_pad($comp['numero'], 4, '0', STR_PAD_LEFT) ?><br>
+                <strong>N.° de pedido:</strong> <?= str_pad($comp['numero_cliente'] ?? $comp['numero'], 4, '0', STR_PAD_LEFT) ?><br>
                 <strong>Entrega:</strong> <?= ($comp['tipo_entrega'] ?? 'envio') === 'retira' ? 'Retira en local' : 'Envío a domicilio' ?>
             </div>
         </div>

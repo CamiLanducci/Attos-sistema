@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -8,7 +8,7 @@ ini_set('max_execution_time', '180');
 // Verificar mPDF
 $autoload = __DIR__ . '/../vendor/autoload.php';
 if (!file_exists($autoload)) {
-    redirect('/attos/catalogo/reducido.php?error=nompdf');
+    redirect(BASE_PATH . '/catalogo/reducido.php?error=nompdf');
 }
 require_once $autoload;
 
@@ -20,26 +20,26 @@ use Mpdf\Config\FontVariables;
 $lista_id   = (int)($_POST['lista_id'] ?? 0);
 $batchToken = trim($_POST['batch_token'] ?? '');
 
-if (!$lista_id || !$batchToken) redirect('/attos/catalogo/reducido.php');
+if (!$lista_id || !$batchToken) redirect(BASE_PATH . '/catalogo/reducido.php');
 
 if (!preg_match('/^[a-f0-9]{32}$/', $batchToken) || $batchToken !== ($_SESSION['catalogo_reducido_token'] ?? '')) {
-    redirect('/attos/catalogo/reducido.php?error=token');
+    redirect(BASE_PATH . '/catalogo/reducido.php?error=token');
 }
 
 $db   = getDB();
 $stmt = $db->prepare("SELECT * FROM listas WHERE id = ?");
 $stmt->execute([$lista_id]);
 $lista = $stmt->fetch();
-if (!$lista) redirect('/attos/catalogo/reducido.php');
+if (!$lista) redirect(BASE_PATH . '/catalogo/reducido.php');
 
 $margen = (float)$lista['margen'];
 
 // ── Leer imágenes del directorio temporal ───────────────────────────────────
 $tmpDir = __DIR__ . DIRECTORY_SEPARATOR . 'tmp' . DIRECTORY_SEPARATOR . $batchToken;
-if (!is_dir($tmpDir)) redirect('/attos/catalogo/reducido.php?error=noimgs');
+if (!is_dir($tmpDir)) redirect(BASE_PATH . '/catalogo/reducido.php?error=noimgs');
 
 $imageFiles = glob($tmpDir . DIRECTORY_SEPARATOR . '*.{jpg,jpeg,png,JPG,JPEG,PNG}', GLOB_BRACE) ?: [];
-if (empty($imageFiles)) redirect('/attos/catalogo/reducido.php?error=noimgs');
+if (empty($imageFiles)) redirect(BASE_PATH . '/catalogo/reducido.php?error=noimgs');
 
 // Ordenar por nombre de archivo (preserva el orden lógico por código)
 usort($imageFiles, fn($a, $b) => strnatcasecmp(basename($a), basename($b)));
@@ -102,7 +102,7 @@ foreach ($imageFiles as $imgPath) {
 if (empty($productos)) {
     foreach ($imageFiles as $f) @unlink($f);
     @rmdir($tmpDir);
-    redirect('/attos/catalogo/reducido.php?error=noproductos');
+    redirect(BASE_PATH . '/catalogo/reducido.php?error=noproductos');
 }
 
 // ── Fecha pública (solo mes y año) ──────────────────────────────────────────

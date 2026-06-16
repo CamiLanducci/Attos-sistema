@@ -1,9 +1,9 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
 $pageTitle     = 'Verificar importación';
-$topbarActions = '<a href="/attos/listas/" class="btn btn-secondary">← Volver</a>';
+$topbarActions = '<a href="' . BASE_PATH . '/listas/" class="btn btn-secondary">← Volver</a>';
 require_once __DIR__ . '/../config/layout.php';
 
 $db = getDB();

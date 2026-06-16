@@ -1,8 +1,8 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 $pageTitle     = 'Productos';
-$topbarActions = '<a href="/attos/productos/form.php" class="btn btn-secondary btn-sm">+ Agregar manual</a>';
+$topbarActions = '<a href="' . BASE_PATH . '/productos/form.php" class="btn btn-secondary btn-sm">+ Agregar manual</a>';
 
 $db     = getDB();
 $listas = $db->query("SELECT * FROM listas ORDER BY margen DESC")->fetchAll();
@@ -78,7 +78,7 @@ require_once __DIR__ . '/../config/layout.php';
         <p>
             <?= $busqueda ? 'Sin resultados para "' . e($busqueda) . '".' : 'No hay productos en esta lista todavía.' ?>
             <?php if (!$busqueda): ?>
-                <br><a href="/attos/listas/" class="text-bordo">Importar desde URL de lista</a>
+                <br><a href="<?= BASE_PATH ?>/listas/" class="text-bordo">Importar desde URL de lista</a>
             <?php endif; ?>
         </p>
     </div>
@@ -123,9 +123,9 @@ require_once __DIR__ . '/../config/layout.php';
                 <td style="text-align:right;" class="fw-bold text-bordo"><?= precio($precioCaja) ?></td>
                 <td style="text-align:right;">
                     <div style="display:flex; gap:4px; justify-content:flex-end;">
-                        <a href="/attos/productos/form.php?id=<?= $p['id'] ?>"
+                        <a href="<?= BASE_PATH ?>/productos/form.php?id=<?= $p['id'] ?>"
                            class="btn btn-sm btn-secondary" style="padding:2px 8px;">Editar</a>
-                        <a href="/attos/productos/actions.php?action=delete&id=<?= $p['id'] ?>"
+                        <a href="<?= BASE_PATH ?>/productos/actions.php?action=delete&id=<?= $p['id'] ?>"
                            class="btn btn-sm btn-danger" style="padding:2px 8px;"
                            data-confirm="¿Eliminar «<?= e($p['nombre']) ?>»? Esta acción no se puede deshacer.">✕</a>
                     </div>

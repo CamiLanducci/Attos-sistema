@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 $pageTitle = 'Generar Catálogo';
@@ -34,7 +34,7 @@ require_once __DIR__ . '/../config/layout.php';
 <div class="card" style="max-width:560px;">
     <div class="card-header"><span class="card-title">Generar catálogo PDF</span></div>
     <div class="card-body">
-        <form method="POST" action="/attos/catalogo/generar.php" target="_blank">
+        <form method="POST" action="<?= BASE_PATH ?>/catalogo/generar.php" target="_blank">
 
             <div class="form-group">
                 <label class="form-label">Lista de precios</label>
@@ -115,7 +115,7 @@ require_once __DIR__ . '/../config/layout.php';
             Subís las fotos (<code>CODIGO_nombre.jpg</code>) y el sistema vincula automáticamente
             cada imagen con su precio en la base de datos.
         </p>
-        <a href="/attos/catalogo/reducido.php" class="btn btn-primary">Ir al Catálogo Reducido →</a>
+        <a href="<?= BASE_PATH ?>/catalogo/reducido.php" class="btn btn-primary">Ir al Catálogo Reducido →</a>
     </div>
 </div>
 

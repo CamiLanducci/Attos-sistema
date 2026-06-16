@@ -1,10 +1,10 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
 $db = getDB();
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-if (!$id) redirect('/attos/comprobantes/');
+if (!$id) redirect(BASE_PATH . '/comprobantes/');
 
 $comp = $db->prepare("
     SELECT c.*, cl.nombre AS cliente_nombre, cl.telefono AS cliente_tel, cl.ciudad AS cliente_ciudad, cl.direccion AS cliente_dir,
@@ -16,7 +16,7 @@ $comp = $db->prepare("
 ");
 $comp->execute([$id]);
 $comp = $comp->fetch();
-if (!$comp) redirect('/attos/comprobantes/');
+if (!$comp) redirect(BASE_PATH . '/comprobantes/');
 
 $items = $db->prepare("
     SELECT ci.*, p.marca
@@ -35,7 +35,8 @@ foreach ($items as $it) {
     $totalUnidades += (int)$it['cantidad_unidades'];
 }
 
-$pageTitle = 'Comprobante #' . $comp['numero'];
+$pageTitle = 'Comprobante #' . $comp['numero']
+           . (isset($comp['numero_cliente']) ? ' — Pedido N.° ' . $comp['numero_cliente'] . ' del cliente' : '');
 $extraHead = '<style>
 @media print {
     body * { display: none !important; }
@@ -51,10 +52,10 @@ $extraHead = '<style>
 }
 </style>';
 $topbarActions = '
-    <a href="/attos/comprobantes/" class="btn btn-secondary">← Volver</a>
-    ' . ($comp['estado'] === 'borrador' ? '<a href="/attos/comprobantes/crear.php?id=' . $id . '" class="btn btn-outline">Editar</a>' : '') . '
-    <a href="/attos/comprobantes/imprimir.php?id=' . $id . '" class="btn btn-outline" target="_blank">🖨 Imprimir</a>
-    <a href="/attos/comprobantes/imprimir.php?id=' . $id . '&pdf=1" class="btn btn-outline" target="_blank">📄 PDF</a>
+    <a href="' . BASE_PATH . '/comprobantes/" class="btn btn-secondary">← Volver</a>
+    ' . ($comp['estado'] === 'borrador' ? '<a href="' . BASE_PATH . '/comprobantes/crear.php?id=' . $id . '" class="btn btn-outline">Editar</a>' : '') . '
+    <a href="' . BASE_PATH . '/comprobantes/imprimir.php?id=' . $id . '" class="btn btn-outline" target="_blank">🖨 Imprimir</a>
+    <a href="' . BASE_PATH . '/comprobantes/imprimir.php?id=' . $id . '&pdf=1" class="btn btn-outline" target="_blank">📄 PDF</a>
 ';
 $msg = $_GET['msg'] ?? '';
 require_once __DIR__ . '/../config/layout.php';
@@ -74,6 +75,9 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
         <div class="card">
             <div class="card-header">
                 <span class="card-title">Comprobante #<?= $comp['numero'] ?></span>
+                <?php if (isset($comp['numero_cliente'])): ?>
+                <span class="text-muted" style="font-size:12px; font-weight:400;">— Pedido N.° <?= $comp['numero_cliente'] ?> del cliente</span>
+                <?php endif; ?>
                 <span class="badge <?= $cls ?>" style="font-size:13px;"><?= $comp['estado'] ?></span>
             </div>
             <div class="card-body">
@@ -178,7 +182,7 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
         <div class="card" style="margin-top:16px;">
             <div class="card-header"><span class="card-title">Cambiar estado</span></div>
             <div class="card-body">
-                <form method="POST" action="/attos/comprobantes/actions.php">
+                <form method="POST" action="<?= BASE_PATH ?>/comprobantes/actions.php">
                     <input type="hidden" name="action" value="estado">
                     <input type="hidden" name="id" value="<?= $id ?>">
                     <select name="estado" class="form-control" style="margin-bottom:10px;">
@@ -192,7 +196,7 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
         </div>
 
         <div style="margin-top:12px;">
-            <a href="/attos/comprobantes/actions.php?action=delete&id=<?= $id ?>"
+            <a href="<?= BASE_PATH ?>/comprobantes/actions.php?action=delete&id=<?= $id ?>"
                class="btn btn-danger w-100"
                data-confirm="¿Eliminar este comprobante? Esta acción no se puede deshacer.">Eliminar comprobante</a>
         </div>

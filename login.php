@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/config/db.php';
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -9,7 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 if (!empty($_SESSION['usuario_id'])) {
-    redirect('/attos/index.php');
+    redirect(BASE_PATH . '/index.php');
 }
 
 $error = '';
@@ -35,8 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("INSERT INTO sesiones (usuario_id, ip_address, user_agent) VALUES (?, ?, ?)")
                    ->execute([$user['id'], $_SERVER['REMOTE_ADDR'] ?? '', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500)]);
 
-                $redirect = $_POST['redirect'] ?? $_GET['redirect'] ?? '/attos/index.php';
-                if (strpos($redirect, '/attos/') !== 0) $redirect = '/attos/index.php';
+                $redirect = $_POST['redirect'] ?? $_GET['redirect'] ?? BASE_PATH . '/index.php';
+                $prefix = BASE_PATH . '/';
+                if (strpos($redirect, $prefix) !== 0) $redirect = BASE_PATH . '/index.php';
                 redirect($redirect);
             } else {
                 $error = 'Usuario o contraseña incorrectos.';
@@ -57,7 +58,7 @@ $redirect = e($_GET['redirect'] ?? '');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Attos — Iniciar sesión</title>
-    <link rel="stylesheet" href="/attos/assets/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
     <style>
         body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
         .login-wrap { width:360px; }

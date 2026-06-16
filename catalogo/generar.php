@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -10,7 +10,7 @@ if (!file_exists($autoload)) {
     echo '<div class="alert alert-warning" style="max-width:560px;">
         <strong>mPDF no está instalado.</strong><br>
         Corré <code>composer install</code> en <code>c:\xampp\htdocs\Attos\</code> y volvé a intentarlo.
-        <br><br><a href="/attos/catalogo/" class="btn btn-secondary btn-sm">← Volver</a>
+        <br><br><a href="<?= BASE_PATH ?>/catalogo/" class="btn btn-secondary btn-sm">← Volver</a>
     </div>';
     require_once __DIR__ . '/../config/layout_end.php';
     exit;
@@ -28,12 +28,12 @@ use Mpdf\Config\FontVariables;
 // ── Parámetros ─────────────────────────────────────────────────────────────────
 $db       = getDB();
 $lista_id = (int)($_POST['lista_id'] ?? $_GET['lista_id'] ?? 0);
-if (!$lista_id) redirect('/attos/catalogo/');
+if (!$lista_id) redirect(BASE_PATH . '/catalogo/');
 
 $lista = $db->prepare("SELECT * FROM listas WHERE id=?");
 $lista->execute([$lista_id]);
 $lista = $lista->fetch();
-if (!$lista) redirect('/attos/catalogo/');
+if (!$lista) redirect(BASE_PATH . '/catalogo/');
 
 $tipo         = in_array($_POST['tipo'] ?? '', ['completo','filtrado']) ? $_POST['tipo'] : 'completo';
 $precio_min   = $tipo === 'filtrado' ? max(0, (float)($_POST['precio_min'] ?? 20000)) : 0;

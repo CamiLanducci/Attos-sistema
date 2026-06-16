@@ -49,15 +49,18 @@ const DB_PASS_ENV = 'DB_PASS';
 const DB_CHARSET_ENV = 'DB_CHARSET';
 const BASE_URL_ENV = 'BASE_URL';
 
-// Valores por defecto
-define('DB_HOST', getenv(DB_HOST_ENV) ?: 'localhost');
-define('DB_PORT', getenv(DB_PORT_ENV) ?: '3306');
-define('DB_NAME', getenv(DB_NAME_ENV) ?: 'attos');
-define('DB_USER', getenv(DB_USER_ENV) ?: 'root');
-define('DB_PASS', getenv(DB_PASS_ENV) ?: '');
+// Valores por defecto — Clever Cloud (MYSQL_ADDON_*) tiene prioridad sobre vars genéricas (DB_*)
+define('DB_HOST', getenv('MYSQL_ADDON_HOST') ?: getenv(DB_HOST_ENV) ?: 'localhost');
+define('DB_PORT', getenv('MYSQL_ADDON_PORT') ?: getenv(DB_PORT_ENV) ?: '3306');
+define('DB_NAME', getenv('MYSQL_ADDON_DB')   ?: getenv(DB_NAME_ENV) ?: 'attos');
+define('DB_USER', getenv('MYSQL_ADDON_USER') ?: getenv(DB_USER_ENV) ?: 'root');
+define('DB_PASS', getenv('MYSQL_ADDON_PASSWORD') ?: getenv(DB_PASS_ENV) ?: '');
 define('DB_CHARSET', getenv(DB_CHARSET_ENV) ?: 'utf8mb4');
 define('BASE_URL', getenv(BASE_URL_ENV) ?: 'http://localhost/Attos');
 define('APP_ENVIRONMENT', getenv(APP_ENV) ?: 'development');
+// BASE_PATH: vacío en producción (raíz del dominio), '/attos' en XAMPP local.
+// En .env.local: BASE_PATH=/attos
+define('BASE_PATH', getenv('BASE_PATH') ?: '');
 
 // ─── VALIDACIÓN DE CONFIGURACIÓN ────────────────────────────
 if (APP_ENVIRONMENT === 'production') {

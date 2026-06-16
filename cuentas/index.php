@@ -1,10 +1,10 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 $pageTitle     = 'Cuentas';
 $topbarActions = '
-    <a href="/attos/cuentas/pago.php"            class="btn btn-primary">+ Registrar pago</a>
-    <a href="/attos/cuentas/crear_movimiento.php" class="btn btn-secondary">+ Movimiento manual</a>
+    <a href="' . BASE_PATH . '/cuentas/pago.php"            class="btn btn-primary">+ Registrar pago</a>
+    <a href="' . BASE_PATH . '/cuentas/crear_movimiento.php" class="btn btn-secondary">+ Movimiento manual</a>
 ';
 
 $db = getDB();
@@ -147,7 +147,7 @@ $tipoBadge   = ['cargo' => 'badge-bordo', 'pago' => 'badge-success'];
                     <div style="font-size:12px; color:#888; margin-bottom:2px;">🏭 Area 520</div>
                     <div style="display:flex; gap:8px; margin-top:4px;">
                         <a href="?cuenta=area_520" class="btn btn-sm btn-secondary" style="font-size:11px; padding:2px 8px;">Ver movimientos</a>
-                        <a href="/attos/cuentas/pago.php?cuenta=area_520" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 8px;">Registrar pago</a>
+                        <a href="<?= BASE_PATH ?>/cuentas/pago.php?cuenta=area_520" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 8px;">Registrar pago</a>
                     </div>
                 </div>
                 <div style="text-align:right;">
@@ -166,7 +166,7 @@ $tipoBadge   = ['cargo' => 'badge-bordo', 'pago' => 'badge-success'];
                     <div style="font-size:12px; color:#888; margin-bottom:2px;">👤 Cuenta Alfre</div>
                     <div style="display:flex; gap:8px; margin-top:4px;">
                         <a href="?cuenta=alfre" class="btn btn-sm btn-secondary" style="font-size:11px; padding:2px 8px;">Ver movimientos</a>
-                        <a href="/attos/cuentas/pago.php?cuenta=alfre" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 8px;">Registrar pago</a>
+                        <a href="<?= BASE_PATH ?>/cuentas/pago.php?cuenta=alfre" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 8px;">Registrar pago</a>
                     </div>
                 </div>
                 <div style="text-align:right;">
@@ -224,7 +224,7 @@ $tipoBadge   = ['cargo' => 'badge-bordo', 'pago' => 'badge-success'];
             <input type="date" name="hasta" class="form-control" style="width:140px;"
                    value="<?= e($filtroHasta) ?>" onchange="this.form.submit()">
             <?php if ($filtroCuenta || $filtroTipo || $filtroDesde || $filtroHasta): ?>
-                <a href="/attos/cuentas/" class="btn btn-secondary btn-sm">✕ Limpiar</a>
+                <a href="<?= BASE_PATH ?>/cuentas/" class="btn btn-secondary btn-sm">✕ Limpiar</a>
             <?php endif; ?>
         </form>
         <span class="text-muted" style="font-size:12px; margin-left:auto;"><?= count($movimientos) ?> movimiento<?= count($movimientos)!==1?'s':'' ?></span>
@@ -259,15 +259,15 @@ $tipoBadge   = ['cargo' => 'badge-bordo', 'pago' => 'badge-success'];
                 <td class="text-muted" style="font-size:13px; max-width:240px;"><?= e($m['descripcion'] ?? '—') ?></td>
                 <td style="font-size:12px;">
                     <?php if ($m['comp_numero']): ?>
-                        <a href="/attos/comprobantes/ver.php?id=<?= $m['comprobante_id'] ?>" class="text-bordo">Comp. #<?= $m['comp_numero'] ?></a>
+                        <a href="<?= BASE_PATH ?>/comprobantes/ver.php?id=<?= $m['comprobante_id'] ?>" class="text-bordo">Comp. #<?= $m['comp_numero'] ?></a>
                     <?php elseif ($m['pedido_id']): ?>
-                        <a href="/attos/pedidos_galpon/ver.php?id=<?= $m['pedido_id'] ?>" class="text-bordo">Pedido #<?= $m['pedido_id'] ?></a>
+                        <a href="<?= BASE_PATH ?>/pedidos_galpon/ver.php?id=<?= $m['pedido_id'] ?>" class="text-bordo">Pedido #<?= $m['pedido_id'] ?></a>
                     <?php elseif ($m['movimiento_par_id']): ?>
                         <span class="text-muted">Par #<?= $m['movimiento_par_id'] ?></span>
                     <?php else: ?>—<?php endif; ?>
                 </td>
                 <td class="text-right">
-                    <a href="/attos/cuentas/actions.php?action=delete_movimiento&id=<?= $m['id'] ?>"
+                    <a href="<?= BASE_PATH ?>/cuentas/actions.php?action=delete_movimiento&id=<?= $m['id'] ?>"
                        class="btn btn-sm btn-danger" style="padding:2px 8px;"
                        data-confirm="¿Eliminar este movimiento?<?= $m['movimiento_par_id'] ? ' También se eliminará el movimiento par.' : '' ?>">×</a>
                 </td>

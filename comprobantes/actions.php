@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -17,20 +17,25 @@ if ($action === 'create') {
     $items        = $_POST['items'] ?? [];
 
     if (!$cliente_id || !$lista_id || empty($items)) {
-        redirect('/attos/comprobantes/crear.php');
+        redirect(BASE_PATH . '/comprobantes/crear.php');
     }
 
     // Obtener margen de la lista desde la DB — no del cliente
     $listaRow = $db->prepare("SELECT margen FROM listas WHERE id=?");
     $listaRow->execute([$lista_id]);
     $margen = (float)($listaRow->fetchColumn() ?? 0);
-    if (!$margen && $margen !== 0.0) redirect('/attos/comprobantes/crear.php');
+    if (!$margen && $margen !== 0.0) redirect(BASE_PATH . '/comprobantes/crear.php');
+
+    // Número secuencial por cliente
+    $stmtNc = $db->prepare("SELECT COALESCE(MAX(numero_cliente), 0) + 1 FROM comprobantes WHERE cliente_id = ?");
+    $stmtNc->execute([$cliente_id]);
+    $numeroCliente = (int)$stmtNc->fetchColumn();
 
     $db->beginTransaction();
     try {
         // Insertar encabezado con totales en 0; se actualizan al final con valores calculados en servidor
-        $stmt = $db->prepare("INSERT INTO comprobantes (numero, fecha, cliente_id, lista_id, estado, notas, envio, tipo_entrega, subtotal, total, creado_por) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
-        $stmt->execute([$numero, $fecha, $cliente_id, $lista_id, $estado, $notas, $envio, $tipo_entrega, 0, 0, $_SESSION['usuario_id']]);
+        $stmt = $db->prepare("INSERT INTO comprobantes (numero, numero_cliente, fecha, cliente_id, lista_id, estado, notas, envio, tipo_entrega, subtotal, total, creado_por) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+        $stmt->execute([$numero, $numeroCliente, $fecha, $cliente_id, $lista_id, $estado, $notas, $envio, $tipo_entrega, 0, 0, $_SESSION['usuario_id']]);
         $compId = $db->lastInsertId();
 
         $stmtItem = $db->prepare("
@@ -100,10 +105,10 @@ if ($action === 'create') {
            ->execute([$subtotalCalculado, $descuentoTotal, $totalCalculado, $compId]);
 
         $db->commit();
-        redirect('/attos/comprobantes/ver.php?id=' . $compId . '&msg=created');
+        redirect(BASE_PATH . '/comprobantes/ver.php?id=' . $compId . '&msg=created');
     } catch (Exception $e) {
         $db->rollBack();
-        redirect('/attos/comprobantes/crear.php');
+        redirect(BASE_PATH . '/comprobantes/crear.php');
     }
 }
 
@@ -119,7 +124,7 @@ if ($action === 'update') {
     $items        = $_POST['items'] ?? [];
 
     if (!$id || !$cliente_id || !$lista_id || empty($items)) {
-        redirect('/attos/comprobantes/crear.php?id=' . $id);
+        redirect(BASE_PATH . '/comprobantes/crear.php?id=' . $id);
     }
 
     // Verify the comprobante exists and is still borrador
@@ -127,7 +132,7 @@ if ($action === 'update') {
     $chk->execute([$id]);
     $current = $chk->fetchColumn();
     if ($current !== 'borrador') {
-        redirect('/attos/comprobantes/ver.php?id=' . $id . '&msg=not_borrador');
+        redirect(BASE_PATH . '/comprobantes/ver.php?id=' . $id . '&msg=not_borrador');
     }
 
     $listaRow = $db->prepare("SELECT margen FROM listas WHERE id=?");
@@ -205,10 +210,10 @@ if ($action === 'update') {
            ->execute([$fecha, $cliente_id, $lista_id, $estadoFinal, $notas, $envio, $tipo_entrega, $subtotalCalculado, $descuentoTotal, $totalCalculado, $_SESSION['usuario_id'], $id]);
 
         $db->commit();
-        redirect('/attos/comprobantes/ver.php?id=' . $id . '&msg=updated');
+        redirect(BASE_PATH . '/comprobantes/ver.php?id=' . $id . '&msg=updated');
     } catch (Exception $e) {
         $db->rollBack();
-        redirect('/attos/comprobantes/crear.php?id=' . $id);
+        redirect(BASE_PATH . '/comprobantes/crear.php?id=' . $id);
     }
 }
 
@@ -249,7 +254,7 @@ if ($action === 'estado') {
             }
         }
     }
-    redirect('/attos/comprobantes/ver.php?id=' . $id);
+    redirect(BASE_PATH . '/comprobantes/ver.php?id=' . $id);
 }
 
 if ($action === 'delete') {
@@ -258,7 +263,7 @@ if ($action === 'delete') {
         $db->prepare("DELETE FROM comprobante_items WHERE comprobante_id=?")->execute([$id]);
         $db->prepare("DELETE FROM comprobantes WHERE id=?")->execute([$id]);
     }
-    redirect('/attos/comprobantes/?msg=deleted');
+    redirect(BASE_PATH . '/comprobantes/?msg=deleted');
 }
 
-redirect('/attos/comprobantes/');
+redirect(BASE_PATH . '/comprobantes/');

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -11,7 +11,7 @@ if ($edit) {
     $stmt = $db->prepare("SELECT * FROM clientes WHERE id = ?");
     $stmt->execute([$id]);
     $cliente = $stmt->fetch();
-    if (!$cliente) { redirect('/attos/clientes/'); }
+    if (!$cliente) { redirect(BASE_PATH . '/clientes/'); }
 } else {
     $cliente = ['nombre' => '', 'telefono' => '', 'ciudad' => '', 'direccion' => '', 'email' => '', 'notas' => '', 'lista_id' => ''];
 }
@@ -33,11 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($edit) {
             $stmt = $db->prepare("UPDATE clientes SET nombre=?, telefono=?, ciudad=?, direccion=?, email=?, notas=?, lista_id=? WHERE id=?");
             $stmt->execute([$nombre, $telefono, $ciudad, $direccion, $email, $notas, $lista_id ?: null, $id]);
-            redirect('/attos/clientes/?msg=updated');
+            redirect(BASE_PATH . '/clientes/?msg=updated');
         } else {
             $stmt = $db->prepare("INSERT INTO clientes (nombre, telefono, ciudad, direccion, email, notas, lista_id) VALUES (?,?,?,?,?,?,?)");
             $stmt->execute([$nombre, $telefono, $ciudad, $direccion, $email, $notas, $lista_id ?: null]);
-            redirect('/attos/clientes/?msg=created');
+            redirect(BASE_PATH . '/clientes/?msg=created');
         }
     }
 
@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $pageTitle     = $edit ? 'Editar cliente' : 'Nuevo cliente';
-$topbarActions = '<a href="/attos/clientes/" class="btn btn-secondary">← Volver</a>';
+$topbarActions = '<a href="' . BASE_PATH . '/clientes/" class="btn btn-secondary">← Volver</a>';
 require_once __DIR__ . '/../config/layout.php';
 ?>
 
@@ -98,7 +98,7 @@ require_once __DIR__ . '/../config/layout.php';
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary"><?= $edit ? 'Guardar cambios' : 'Crear cliente' ?></button>
-                <a href="/attos/clientes/" class="btn btn-secondary">Cancelar</a>
+                <a href="<?= BASE_PATH ?>/clientes/" class="btn btn-secondary">Cancelar</a>
             </div>
         </form>
     </div>

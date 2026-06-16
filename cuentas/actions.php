@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -13,7 +13,7 @@ if ($action === 'pago') {
     $desc   = trim($_POST['descripcion'] ?? 'Pago a ' . ($cuenta ?? ''));
 
     if (!$cuenta || $monto <= 0) {
-        redirect('/attos/cuentas/pago.php?msg=error');
+        redirect(BASE_PATH . '/cuentas/pago.php?msg=error');
     }
 
     $db->beginTransaction();
@@ -38,10 +38,10 @@ if ($action === 'pago') {
         $db->prepare("UPDATE movimientos_cuenta SET movimiento_par_id=? WHERE id=?")->execute([$idB, $idA]);
 
         $db->commit();
-        redirect('/attos/cuentas/?msg=pago_ok');
+        redirect(BASE_PATH . '/cuentas/?msg=pago_ok');
     } catch (Exception $e) {
         $db->rollBack();
-        redirect('/attos/cuentas/pago.php?msg=error');
+        redirect(BASE_PATH . '/cuentas/pago.php?msg=error');
     }
 }
 
@@ -56,7 +56,7 @@ if ($action === 'crear_movimiento') {
     $compId  = (int)($_POST['comprobante_id']   ?? 0) ?: null;
 
     if (!$cuenta || !$tipo || $monto <= 0) {
-        redirect('/attos/cuentas/crear_movimiento.php?msg=error');
+        redirect(BASE_PATH . '/cuentas/crear_movimiento.php?msg=error');
     }
 
     try {
@@ -64,25 +64,25 @@ if ($action === 'crear_movimiento') {
             INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, pedido_galpon_id, comprobante_id, creado_por)
             VALUES (?,?,?,?,?,?,?,?)
         ")->execute([$fecha, $cuenta, $tipo, $monto, $desc, $pedId, $compId, $_SESSION['usuario_id']]);
-        redirect('/attos/cuentas/?msg=creado');
+        redirect(BASE_PATH . '/cuentas/?msg=creado');
     } catch (Exception $e) {
-        redirect('/attos/cuentas/crear_movimiento.php?msg=error');
+        redirect(BASE_PATH . '/cuentas/crear_movimiento.php?msg=error');
     }
 }
 
 // ── Eliminar movimiento ───────────────────────────────────────────────────────
 if ($action === 'delete_movimiento') {
     $id = (int)($_GET['id'] ?? ($_POST['id'] ?? 0));
-    if (!$id) redirect('/attos/cuentas/');
+    if (!$id) redirect(BASE_PATH . '/cuentas/');
 
     $mov = $db->prepare("SELECT * FROM movimientos_cuenta WHERE id=?");
     $mov->execute([$id]);
     $mov = $mov->fetch();
-    if (!$mov) redirect('/attos/cuentas/');
+    if (!$mov) redirect(BASE_PATH . '/cuentas/');
 
     // Guard: vinculado a comprobante → el usuario debe revertir el estado cobrado
     if ($mov['comprobante_id']) {
-        redirect('/attos/cuentas/?msg=no_delete_comp');
+        redirect(BASE_PATH . '/cuentas/?msg=no_delete_comp');
     }
 
     // Guard: vinculado a pedido recibido → no eliminar (la deuda ya está contabilizada)
@@ -90,7 +90,7 @@ if ($action === 'delete_movimiento') {
         $est = $db->prepare("SELECT estado_pedido FROM pedidos_galpon WHERE id=?");
         $est->execute([$mov['pedido_galpon_id']]);
         if ($est->fetchColumn() === 'recibido') {
-            redirect('/attos/cuentas/?msg=no_delete_ped');
+            redirect(BASE_PATH . '/cuentas/?msg=no_delete_ped');
         }
     }
 
@@ -104,11 +104,11 @@ if ($action === 'delete_movimiento') {
             $db->prepare("DELETE FROM movimientos_cuenta WHERE id=?")->execute([$parId]);
         }
         $db->commit();
-        redirect('/attos/cuentas/?msg=deleted');
+        redirect(BASE_PATH . '/cuentas/?msg=deleted');
     } catch (Exception $e) {
         $db->rollBack();
-        redirect('/attos/cuentas/?msg=error');
+        redirect(BASE_PATH . '/cuentas/?msg=error');
     }
 }
 
-redirect('/attos/cuentas/');
+redirect(BASE_PATH . '/cuentas/');

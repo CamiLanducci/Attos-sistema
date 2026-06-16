@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
@@ -11,7 +11,7 @@ if ($edit) {
     $stmt = $db->prepare("SELECT * FROM productos WHERE id = ?");
     $stmt->execute([$id]);
     $producto = $stmt->fetch();
-    if (!$producto) { redirect('/attos/productos/'); }
+    if (!$producto) { redirect(BASE_PATH . '/productos/'); }
 
     $preciosStmt = $db->prepare("SELECT lista_id, costo FROM lista_precios WHERE producto_id = ?");
     $preciosStmt->execute([$id]);
@@ -19,9 +19,11 @@ if ($edit) {
     foreach ($preciosStmt->fetchAll() as $row) {
         $precios[(int)$row['lista_id']] = (float)$row['costo'];
     }
+    $costoBase = !empty($precios) ? reset($precios) : 0.0;
 } else {
-    $producto = ['codigo' => '', 'nombre' => '', 'marca' => '', 'unidades_por_caja' => 6, 'precio_por_pack' => 0, 'contenido' => '', 'descripcion' => ''];
-    $precios  = [];
+    $producto  = ['codigo' => '', 'nombre' => '', 'marca' => '', 'unidades_por_caja' => 6, 'precio_por_pack' => 0, 'contenido' => '', 'descripcion' => ''];
+    $precios   = [];
+    $costoBase = 0.0;
 }
 
 $marcas = $db->query("SELECT DISTINCT marca FROM productos WHERE activo=1 AND marca IS NOT NULL AND marca != '' ORDER BY marca ASC")->fetchAll(PDO::FETCH_COLUMN);
@@ -36,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $precio_por_pack   = ($_POST['precio_por_pack'] ?? '0') === '1' ? 1 : 0;
     $contenido         = trim($_POST['contenido']       ?? '');
     $descripcion       = trim($_POST['descripcion']     ?? '');
-    $costosPOST        = $_POST['costo'] ?? [];
+    $costoBase         = (float)str_replace(',', '.', trim($_POST['costo_base'] ?? '0'));
 
     if ($nombre === '') $errors[] = 'El nombre es obligatorio.';
     if ($unidades_por_caja < 1) $errors[] = 'Las unidades por caja deben ser al menos 1.';
@@ -56,29 +58,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             VALUES (?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE costo=VALUES(costo), costo_caja=VALUES(costo_caja)
         ");
-        foreach ($listas as $l) {
-            $lid   = (int)$l['id'];
-            $raw   = str_replace(',', '.', trim($costosPOST[$lid] ?? '0'));
-            $costo = is_numeric($raw) ? (float)$raw : 0.0;
-            if ($costo > 0) {
-                $stmtLP->execute([$lid, $id, $costo, $costo * $unidades_por_caja]);
+        if ($costoBase > 0) {
+            foreach ($listas as $l) {
+                $lid = (int)$l['id'];
+                $stmtLP->execute([$lid, $id, $costoBase, $costoBase * $unidades_por_caja]);
             }
         }
 
-        redirect('/attos/productos/?msg=' . ($edit ? 'updated' : 'created'));
+        redirect(BASE_PATH . '/productos/?msg=' . ($edit ? 'updated' : 'created'));
     }
 
     $producto = compact('codigo', 'nombre', 'marca', 'unidades_por_caja', 'precio_por_pack', 'contenido', 'descripcion');
-    $precios  = [];
-    foreach ($listas as $l) {
-        $lid = (int)$l['id'];
-        $raw = str_replace(',', '.', trim($costosPOST[$lid] ?? ''));
-        if ($raw !== '') $precios[$lid] = (float)$raw;
-    }
 }
 
 $pageTitle     = $edit ? 'Editar producto' : 'Nuevo producto';
-$topbarActions = '<a href="/attos/productos/" class="btn btn-secondary">← Volver</a>';
+$topbarActions = '<a href="' . BASE_PATH . '/productos/" class="btn btn-secondary">← Volver</a>';
 require_once __DIR__ . '/../config/layout.php';
 ?>
 
@@ -143,21 +137,35 @@ require_once __DIR__ . '/../config/layout.php';
                 </small>
             </div>
 
-            <!-- Precios por lista -->
+            <!-- Costo base -->
             <div class="form-group" style="margin-top:8px;">
-                <label class="form-label">Costo por lista</label>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                <?php foreach ($listas as $l): ?>
-                    <div style="display:flex; align-items:center; gap:8px; background:#f9f5f0; border-radius:6px; padding:8px 10px;">
-                        <span class="badge badge-bordo" style="min-width:36px; text-align:center;"><?= e($l['codigo']) ?></span>
-                        <span class="text-muted" style="font-size:11px; white-space:nowrap;"><?= $l['margen'] ?>% mrg</span>
-                        <input type="text" name="costo[<?= $l['id'] ?>]" class="form-control"
-                               style="flex:1; text-align:right;"
-                               placeholder="0,00"
-                               value="<?= isset($precios[(int)$l['id']]) ? number_format($precios[(int)$l['id']], 2, ',', '.') : '' ?>">
-                    </div>
-                <?php endforeach; ?>
-                </div>
+                <label class="form-label">Costo base</label>
+                <input type="text" name="costo_base" id="costo_base" class="form-control"
+                       style="max-width:200px;"
+                       placeholder="0,00"
+                       value="<?= $costoBase > 0 ? number_format($costoBase, 2, ',', '.') : '' ?>"
+                       oninput="actualizarPrecios()">
+                <small class="text-muted" style="font-size:11px; margin-top:4px; display:block;">
+                    El precio de venta se calcula aplicando el margen de cada lista.
+                </small>
+                <table style="margin-top:10px; width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.4px;">
+                            <th style="text-align:left; padding:4px 8px; font-weight:600;">Lista</th>
+                            <th style="text-align:right; padding:4px 8px; font-weight:600;">Margen</th>
+                            <th style="text-align:right; padding:4px 8px; font-weight:600;">Precio venta</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($listas as $l): ?>
+                        <tr style="border-top:1px solid #EEE;">
+                            <td style="padding:5px 8px; font-size:13px;"><?= e($l['codigo']) ?></td>
+                            <td style="padding:5px 8px; font-size:13px; text-align:right; color:#888;"><?= $l['margen'] ?>%</td>
+                            <td style="padding:5px 8px; font-size:13px; text-align:right; font-weight:600; color:#631636;" id="prev-<?= $l['id'] ?>">—</td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
 
             <div class="form-group">
@@ -166,7 +174,7 @@ require_once __DIR__ . '/../config/layout.php';
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary"><?= $edit ? 'Guardar cambios' : 'Crear producto' ?></button>
-                <a href="/attos/productos/" class="btn btn-secondary">Cancelar</a>
+                <a href="<?= BASE_PATH ?>/productos/" class="btn btn-secondary">Cancelar</a>
             </div>
         </form>
     </div>
@@ -176,8 +184,21 @@ require_once __DIR__ . '/../config/layout.php';
 function toggleMarcaCustom(val) {
     document.getElementById('marca-custom').style.display = val === '' ? '' : 'none';
 }
+const listasData = <?= json_encode(array_map(fn($l) => ['id' => (int)$l['id'], 'margen' => (float)$l['margen']], $listas)) ?>;
+function actualizarPrecios() {
+    const raw   = document.getElementById('costo_base').value.replace(',', '.');
+    const costo = parseFloat(raw) || 0;
+    listasData.forEach(l => {
+        const precio = costo > 0 ? costo * (1 + l.margen / 100) : 0;
+        const el = document.getElementById('prev-' + l.id);
+        if (el) el.textContent = precio > 0
+            ? '$' + precio.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+            : '—';
+    });
+}
 document.addEventListener('DOMContentLoaded', () => {
     toggleMarcaCustom(document.getElementById('select-marca').value);
+    actualizarPrecios();
 });
 </script>
 

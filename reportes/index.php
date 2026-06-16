@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 $pageTitle = 'Reportes';
@@ -182,7 +182,7 @@ require_once __DIR__ . '/../config/layout.php';
             </div>
             <?php if ($lista_id || $cliente_id): ?>
             <div class="form-group" style="margin:0; align-self:flex-end;">
-                <a href="/attos/reportes/?mes=<?= e($mes) ?>" class="btn btn-secondary btn-sm">✕ Limpiar</a>
+                <a href="<?= BASE_PATH ?>/reportes/?mes=<?= e($mes) ?>" class="btn btn-secondary btn-sm">✕ Limpiar</a>
             </div>
             <?php endif; ?>
         </form>
@@ -324,7 +324,7 @@ require_once __DIR__ . '/../config/layout.php';
                         <td class="text-right text-muted"><?= precio((float)$c['costo_total']) ?></td>
                         <td class="text-right fw-bold text-bordo"><?= precio((float)$c['ganancia']) ?></td>
                         <td><span class="badge <?= $cls ?>"><?= $c['estado'] ?></span></td>
-                        <td><a href="/attos/comprobantes/ver.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">Ver</a></td>
+                        <td><a href="<?= BASE_PATH ?>/comprobantes/ver.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">Ver</a></td>
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>

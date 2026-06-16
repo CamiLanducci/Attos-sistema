@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 $pageTitle = 'Listas / Márgenes';
@@ -18,7 +18,7 @@ require_once __DIR__ . '/../config/layout.php';
 
 <!-- Botón de importación global -->
 <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
-    <a href="/attos/listas/importar.php"
+    <a href="<?= BASE_PATH ?>/listas/importar.php"
        class="btn btn-primary <?= empty($listasConUrl) ? 'disabled' : '' ?>"
        <?= empty($listasConUrl) ? 'onclick="return false;" title=\'Configurá al menos una URL en las listas\'' : '' ?>>
         ↓ Importar precios desde proveedor
@@ -26,7 +26,7 @@ require_once __DIR__ . '/../config/layout.php';
     <span class="text-muted" style="font-size:12px;">
         <?= count($listasConUrl) ?> de <?= count($listas) ?> listas con URL configurada
     </span>
-    <a href="/attos/listas/verificar.php" class="btn btn-secondary btn-sm">Ver estado importación</a>
+    <a href="<?= BASE_PATH ?>/listas/verificar.php" class="btn btn-secondary btn-sm">Ver estado importación</a>
 </div>
 
 <div class="lista-cards-grid">
@@ -49,7 +49,7 @@ require_once __DIR__ . '/../config/layout.php';
         <div style="font-size:12px; color:var(--text-soft); margin-bottom:12px;">Sin actualizaciones aún</div>
         <?php endif; ?>
 
-        <form method="POST" action="/attos/listas/actions.php">
+        <form method="POST" action="<?= BASE_PATH ?>/listas/actions.php">
             <input type="hidden" name="id" value="<?= $l['id'] ?>">
             <div class="form-group">
                 <label class="form-label">Código</label>
@@ -81,7 +81,7 @@ require_once __DIR__ . '/../config/layout.php';
 <div class="card" style="max-width:420px; margin-top:24px;">
     <div class="card-header"><span class="card-title">Nueva lista</span></div>
     <div class="card-body">
-        <form method="POST" action="/attos/listas/actions.php">
+        <form method="POST" action="<?= BASE_PATH ?>/listas/actions.php">
             <input type="hidden" name="action" value="create">
             <div class="form-row">
                 <div class="form-group">
