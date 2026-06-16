@@ -82,7 +82,8 @@ require_once __DIR__ . '/../config/layout.php';
                     Marcas a incluir
                     <span class="text-muted" style="font-size:11px; font-weight:400;">(ninguna seleccionada = todas)</span>
                 </label>
-                <div style="max-height:180px; overflow-y:auto; border:1px solid var(--border); border-radius:4px; padding:8px 12px; font-size:13px;">
+                <input type="text" id="buscar-marca" class="form-control" placeholder="Buscar bodega…" oninput="filtrarMarcas()" style="margin-bottom:6px;">
+                <div id="lista-marcas" style="max-height:180px; overflow-y:auto; border:1px solid var(--border); border-radius:4px; padding:8px 12px; font-size:13px;">
                     <?php foreach ($marcas as $m): ?>
                     <label style="display:flex; align-items:center; gap:8px; padding:3px 0; cursor:pointer;">
                         <input type="checkbox" name="marcas[]" value="<?= e($m) ?>">
@@ -124,7 +125,13 @@ function toggleFiltro() {
     document.getElementById('row-precio-min').style.display = filtrado ? '' : 'none';
 }
 function toggleMarcas(check) {
-    document.querySelectorAll('input[name="marcas[]"]').forEach(cb => cb.checked = check);
+    document.querySelectorAll('#lista-marcas input[name="marcas[]"]').forEach(cb => cb.checked = check);
+}
+function filtrarMarcas() {
+    const q = document.getElementById('buscar-marca').value.toLowerCase();
+    document.querySelectorAll('#lista-marcas label').forEach(label => {
+        label.style.display = label.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
 }
 </script>
 

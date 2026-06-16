@@ -76,7 +76,7 @@ $rawProds  = $stmtProds->fetchAll();
 $productos = [];
 foreach ($rawProds as $p) {
     $upc       = max(1, (int)$p['unidades_por_caja']);
-    $esGaseosa = esGaseosaOEnergizante($p['categoria'] ?? '');
+    $esGaseosa = esGaseosaOEnergizante($p['marca'] ?? '');
     if ($esGaseosa) {
         if ($p['precio_por_pack']) {
             $p['precio_caja'] = (float)$p['costo'] * (1 + $margen / 100);
@@ -86,7 +86,7 @@ foreach ($rawProds as $p) {
             $p['precio_caja'] = $p['precio_unit'] * $upc;
         }
     } else {
-        if ($p['precio_por_pack']) {
+        if ($p['precio_por_pack'] || esCerveza($p['marca'] ?? '')) {
             $p['precio_caja'] = (float)$p['costo'];
             $p['precio_unit'] = $p['precio_caja'] / $upc;
         } else {
@@ -109,6 +109,69 @@ foreach ($productos as $p) {
     $byMarca[trim($p['marca'] ?: 'Sin marca')][] = $p;
 }
 uksort($byMarca, fn($a, $b) => mb_strtolower($a, 'UTF-8') <=> mb_strtolower($b, 'UTF-8'));
+
+// Unificar todas las variantes de espumantes en una sola sección "Espumantes",
+// excepto las que contengan "importad" (ej: "espumantes importados (pedi por unidad)")
+$espumantesPool = [];
+foreach ($byMarca as $marcaKey => $prods) {
+    $lower = mb_strtolower($marcaKey, 'UTF-8');
+    if (strpos($lower, 'espumante') !== false && strpos($lower, 'importad') === false) {
+        $espumantesPool = array_merge($espumantesPool, $prods);
+        unset($byMarca[$marcaKey]);
+    }
+}
+if (!empty($espumantesPool)) {
+    $byMarca['Espumantes'] = $espumantesPool;
+    uksort($byMarca, fn($a, $b) => mb_strtolower($a, 'UTF-8') <=> mb_strtolower($b, 'UTF-8'));
+}
+
+// ── Clasificar marcas en secciones del catálogo ────────────────────────────
+function clasificarMarca(string $marca): string {
+    $m = mb_strtolower(trim($marca), 'UTF-8');
+    if (strpos($m, 'aceite') !== false) return 'Aceites';
+    if (strpos($m, 'espumante') !== false) return 'Espumantes';
+    if (strpos($m, 'cerveza') !== false) return 'Cervezas';
+    if (strpos($m, 'whisky') !== false || strpos($m, 'whiskey') !== false) return 'Whiskeys';
+    if (strpos($m, 'aperitiv') !== false) return 'Aperitivos';
+    if (strpos($m, 'vodka') !== false  || strpos($m, 'tequila') !== false
+        || strpos($m, 'fernet') !== false || strpos($m, 'licor') !== false
+        || strpos($m, 'brandy') !== false || strpos($m, 'brandys') !== false
+        || strpos($m, 'oporto') !== false
+        || strpos($m, 'cóctel') !== false || strpos($m, 'coctel') !== false
+        || strpos($m, 'petaca') !== false || strpos($m, 'miniatura') !== false
+        || strpos($m, 'vinos generosos') !== false
+        || strpos($m, 'gin (') !== false  || $m === 'gin'
+        || strpos($m, 'ron (') !== false  || $m === 'ron') return 'Destilados y Más';
+    if (strpos($m, 'energizante') !== false || strpos($m, 'gaseosa') !== false
+        || strpos($m, 'jugo') !== false   || strpos($m, 'sidra') !== false) return 'Bebidas';
+    return 'Bodegas';
+}
+
+// Nombre limpio para el índice (sin "( pedi por unidad )", con title case)
+function getTocName(string $marca, string $catNombre): string {
+    $ml = mb_strtolower(trim($marca), 'UTF-8');
+    if ($ml === 'espumantes') return 'Espumantes Nacionales';
+    if (strpos($ml, 'espumante') !== false && strpos($ml, 'importad') !== false) return 'Espumantes Importados';
+    $nombre = preg_replace('/\s*\(\s*pedi por unidad\s*\)/i', '', $marca);
+    $nombre = trim($nombre);
+    if ($catNombre === 'Whiskeys') {
+        $nombre = preg_replace('/^whiskys?\s+/i', '', $nombre);
+    }
+    return mb_convert_case($nombre, MB_CASE_TITLE, 'UTF-8');
+}
+
+$categoriaOrder = ['Bodegas', 'Espumantes', 'Cervezas', 'Whiskeys', 'Aperitivos', 'Destilados y Más', 'Aceites', 'Bebidas'];
+$byCategoria = [];
+foreach ($byMarca as $marca => $prods) {
+    $cat = clasificarMarca($marca);
+    $byCategoria[$cat][$marca] = $prods;
+}
+uksort($byCategoria, function($a, $b) use ($categoriaOrder) {
+    $ia = array_search($a, $categoriaOrder) ?? 999;
+    $ib = array_search($b, $categoriaOrder) ?? 999;
+    return $ia <=> $ib;
+});
+$byCategoria = array_filter($byCategoria);
 
 // ── Fechas ─────────────────────────────────────────────────────────────────────
 // fechaPublica: solo mes+año para documentos que ve el cliente (sin día exacto)
@@ -324,6 +387,52 @@ table.prods tbody td {
     color: #aaa;
     line-height: 1.8;
 }
+
+/* ── Encabezado de categoría ─────────────── */
+.cat-heading {
+    font-family: <?= $headingFont ?>, dejavuserif, serif;
+    font-size: 13pt;
+    font-weight: 700;
+    color: #FAF6EF;
+    background-color: #631636;
+    padding: 3mm 5mm;
+    margin-top: 14mm;
+    margin-bottom: 0;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    page-break-after: avoid;
+}
+.brand-heading {
+    margin-top: 6mm;
+}
+
+/* ── Índice ──────────────────────────────── */
+.index-heading {
+    font-family: <?= $headingFont ?>, dejavuserif, serif;
+    font-size: 20pt;
+    font-weight: 700;
+    color: #631636;
+    border-bottom: 0.4mm solid #631636;
+    padding-bottom: 3mm;
+    margin-bottom: 10mm;
+}
+.idx-cat {
+    font-family: <?= $headingFont ?>, dejavuserif, serif;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #631636;
+    border-bottom: 0.2mm solid #631636;
+    padding-bottom: 1mm;
+    margin-top: 7mm;
+    margin-bottom: 2mm;
+    page-break-after: avoid;
+}
+.idx-name {
+    font-size: 9.5pt;
+    color: #1A1A1A;
+    padding: 0.6mm 3mm;
+    line-height: 1.55;
+}
 </style>
 </head>
 <body>
@@ -377,17 +486,56 @@ table.prods tbody td {
 <pagebreak />
 <sethtmlpageheader name="hdr" page="ALL" value="on" show-this-page="1" />
 <sethtmlpagefooter name="ftr" page="ALL" value="on" show-this-page="1" />
+<?php
+// ── Split: escribir la portada y luego insertar índice vía PHP API ─────────
+$html = ob_get_clean();
+$mpdf->WriteHTML($html);
 
-<?php if (empty($byMarca)): ?>
+$mpdf->TOCpagebreakByArray([
+    'paging'               => true,
+    'links'                => true,
+    'toc-preHTML'          => '<div class="index-heading">Índice</div>',
+    'toc-odd-header-name'  => 'hdr',
+    'toc-even-header-name' => 'hdr',
+    'toc-odd-footer-name'  => 'ftr',
+    'toc-even-footer-name' => 'ftr',
+    'toc-odd-header-value'  => 1,
+    'toc-even-header-value' => 1,
+    'toc-odd-footer-value'  => 1,
+    'toc-even-footer-value' => 1,
+]);
+
+ob_start();
+?>
+<?php if (empty($byCategoria)): ?>
 <p style="text-align:center; color:#888; font-style:italic; padding:40mm 0;">
     No hay productos que cumplan los criterios del catálogo.
 </p>
 <?php else: ?>
 
-<?php foreach ($byMarca as $marca => $prods):
-    $colsPrecio = $modo === 'ambos' ? 2 : 1;
+<?php
+$catsTocDetallado = ['Bodegas', 'Espumantes', 'Whiskeys'];
+foreach ($byCategoria as $catNombre => $marcasEnCat):
+  $catLower   = mb_strtolower($catNombre, 'UTF-8');
+  $catDisplay = mb_strtoupper(mb_substr($catLower, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($catLower, 1, null, 'UTF-8');
+  $tocDetallado = in_array($catNombre, $catsTocDetallado);
 ?>
-<div class="brand-heading"><?= e($marca) ?></div>
+<tocentry content="<?= e($catNombre) ?>" level="0" />
+<div class="cat-heading"><?= e($catDisplay) ?></div>
+
+<?php foreach ($marcasEnCat as $marca => $prods):
+  usort($prods, function($a, $b) { return $a['precio_unit'] <=> $b['precio_unit']; });
+  $colsPrecio       = $modo === 'ambos' ? 2 : 1;
+  $texto_formateado = mb_convert_case($marca, MB_CASE_TITLE, 'UTF-8');
+  $mismaNombreQueCategoria = mb_strtolower($texto_formateado, 'UTF-8') === mb_strtolower($catNombre, 'UTF-8');
+  $tocName = getTocName($marca, $catNombre);
+?>
+<?php if ($tocDetallado && mb_strtolower(trim($marca), 'UTF-8') !== 'zzz'): ?>
+<tocentry content="<?= e($tocName) ?>" level="1" />
+<?php endif; ?>
+<?php if (!$mismaNombreQueCategoria): ?>
+<div class="brand-heading"><?= e($texto_formateado) ?></div>
+<?php endif; ?>
 <table class="prods" cellpadding="0" cellspacing="0">
     <thead>
         <tr>
@@ -426,7 +574,8 @@ table.prods tbody td {
     <?php endforeach; ?>
     </tbody>
 </table>
-<?php endforeach; ?>
+<?php endforeach; // end brands ?>
+<?php endforeach; // end categories ?>
 <?php endif; ?>
 
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
@@ -450,7 +599,10 @@ table.prods tbody td {
 </html>
 <?php
 $html = ob_get_clean();
-
-$mpdf->WriteHTML($html);
-$nombre = 'catalogo-attos-' . strtolower($lista['codigo']) . '-' . date('Y-m-d') . '.pdf';
+$mpdf->WriteHTML($html, \Mpdf\HTMLParserMode::HTML_BODY);
+$meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+$mes   = $meses[intval(date('n')) - 1];
+$sufijos = [10 => 'Mayorista', 15 => 'Flia', 20 => 'ClientesFieles', 25 => ''];
+$sufijo  = $sufijos[(int)$lista['margen']] ?? '';
+$nombre  = 'Attos-Lista-' . $mes . ($sufijo !== '' ? '-' . $sufijo : '') . '.pdf';
 $mpdf->Output($nombre, 'I');

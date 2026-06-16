@@ -69,7 +69,7 @@ foreach ($imageFiles as $imgPath) {
 
     // Calcular precios (misma lógica que generar.php)
     $upc       = max(1, (int)$p['unidades_por_caja']);
-    $esGaseosa = esGaseosaOEnergizante($p['categoria'] ?? '');
+    $esGaseosa = esGaseosaOEnergizante($p['marca'] ?? '');
 
     if ($esGaseosa) {
         if ($p['precio_por_pack']) {
@@ -80,7 +80,7 @@ foreach ($imageFiles as $imgPath) {
             $precioCaja = $precioUnit * $upc;
         }
     } else {
-        if ($p['precio_por_pack']) {
+        if ($p['precio_por_pack'] || esCerveza($p['marca'] ?? '')) {
             $precioCaja = (float)$p['costo'];
             $precioUnit = $precioCaja / $upc;
         } else {

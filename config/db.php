@@ -117,6 +117,10 @@ function esGaseosaOEnergizante(string $cat): bool {
         || strpos($cat, 'soda')    !== false;
 }
 
+function esCerveza(string $cat): bool {
+    return strpos(strtolower(trim($cat)), 'cerveza') !== false;
+}
+
 function getPrecioProductoLista(int $productoId, int $listaId): ?array {
     $stmt = getDB()->prepare("
         SELECT lp.costo, lp.costo_caja, l.margen
@@ -158,7 +162,7 @@ function calcularPreciosProducto(float $costo, float $margen, int $upc, int $pre
             $costoUnit  = $costo;
         }
     } else {
-        if ($precioPorPack) {
+        if ($precioPorPack || esCerveza($categoria)) {
             $precioCaja = $costo;
             $precioUnit = $costo / $upc;
             $costoUnit  = $precioUnit / (1 + $margen / 100);

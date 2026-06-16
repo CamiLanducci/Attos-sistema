@@ -6,7 +6,14 @@
       "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root attos -e \"SHOW COLUMNS FROM comprobantes LIKE 'creado_por'; SHOW COLUMNS FROM pedidos_galpon LIKE 'creado_por'; SHOW COLUMNS FROM movimientos_cuenta LIKE 'creado_por';\" 2>&1)",
       "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root attos -e \"SELECT id, nombre_real, usuario, rol, activo, last_login FROM usuarios;\")",
       "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root attos -e \"ALTER TABLE comprobantes ADD COLUMN tipo_entrega ENUM\\('envio','retira'\\) NOT NULL DEFAULT 'envio' AFTER envio;\" 2>&1; Write-Output \"Exit: $LASTEXITCODE\")",
-      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root attos -e \"SHOW COLUMNS FROM comprobantes LIKE 'tipo_entrega';\")"
+      "PowerShell(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe -u root attos -e \"SHOW COLUMNS FROM comprobantes LIKE 'tipo_entrega';\")",
+      "Read(//c/xampp/**)",
+      "Bash(./mysql/bin/mysql -u root attos -e \"SELECT DISTINCT marca FROM productos WHERE activo=1 AND marca LIKE '%spumant%' ORDER BY marca COLLATE utf8mb4_unicode_ci;\")",
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root attos -e \"SELECT DISTINCT categoria FROM productos WHERE activo=1 ORDER BY categoria;\")",
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root attos -e \"SELECT DISTINCT marca, categoria FROM productos WHERE activo=1 ORDER BY marca COLLATE utf8mb4_unicode_ci LIMIT 50;\")",
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root attos -e \"SELECT DISTINCT marca FROM productos WHERE activo=1 AND marca LIKE '%cerveza%' ORDER BY marca;\")",
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root attos -e \"SELECT DISTINCT marca FROM productos WHERE activo=1 ORDER BY marca COLLATE utf8mb4_unicode_ci;\")",
+      "PowerShell(\\(Get-Content \"C:\\\\xampp\\\\htdocs\\\\Attos\\\\vendor\\\\composer\\\\installed.json\" | ConvertFrom-Json\\)[0].version)"
     ]
   }
 }
