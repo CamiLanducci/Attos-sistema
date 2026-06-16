@@ -185,11 +185,19 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
                 <form method="POST" action="<?= BASE_PATH ?>/comprobantes/actions.php">
                     <input type="hidden" name="action" value="estado">
                     <input type="hidden" name="id" value="<?= $id ?>">
-                    <select name="estado" class="form-control" style="margin-bottom:10px;">
+                    <select name="estado" class="form-control" style="margin-bottom:10px;"
+                            onchange="document.getElementById('medio-pago-wrap').style.display=this.value==='cobrado'?'block':'none'">
                         <option value="borrador" <?= $comp['estado']==='borrador' ? 'selected':'' ?>>Borrador</option>
                         <option value="emitido"  <?= $comp['estado']==='emitido'  ? 'selected':'' ?>>Emitido</option>
                         <option value="cobrado"  <?= $comp['estado']==='cobrado'  ? 'selected':'' ?>>Cobrado</option>
                     </select>
+                    <div id="medio-pago-wrap" style="display:<?= $comp['estado']==='cobrado'?'block':'none' ?>; margin-bottom:10px;">
+                        <label style="font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); display:block; margin-bottom:4px;">Medio de cobro</label>
+                        <select name="medio_pago" class="form-control">
+                            <option value="efectivo"      <?= ($comp['medio_pago']??'')==='efectivo'      ? 'selected':'' ?>>💵 Efectivo</option>
+                            <option value="transferencia" <?= ($comp['medio_pago']??'')==='transferencia' ? 'selected':'' ?>>💳 Transferencia</option>
+                        </select>
+                    </div>
                     <button type="submit" class="btn btn-primary w-100">Actualizar</button>
                 </form>
             </div>

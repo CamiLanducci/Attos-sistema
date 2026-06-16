@@ -13,7 +13,10 @@
       "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root attos -e \"SELECT DISTINCT marca, categoria FROM productos WHERE activo=1 ORDER BY marca COLLATE utf8mb4_unicode_ci LIMIT 50;\")",
       "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root attos -e \"SELECT DISTINCT marca FROM productos WHERE activo=1 AND marca LIKE '%cerveza%' ORDER BY marca;\")",
       "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root attos -e \"SELECT DISTINCT marca FROM productos WHERE activo=1 ORDER BY marca COLLATE utf8mb4_unicode_ci;\")",
-      "PowerShell(\\(Get-Content \"C:\\\\xampp\\\\htdocs\\\\Attos\\\\vendor\\\\composer\\\\installed.json\" | ConvertFrom-Json\\)[0].version)"
+      "PowerShell(\\(Get-Content \"C:\\\\xampp\\\\htdocs\\\\Attos\\\\vendor\\\\composer\\\\installed.json\" | ConvertFrom-Json\\)[0].version)",
+      "Bash(./mysql -u root attos)",
+      "Bash(/c/xampp/mysql/bin/mysql *)",
+      "Bash(/c/xampp/php/php.exe *)"
     ]
   }
 }

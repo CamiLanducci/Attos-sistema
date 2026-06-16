@@ -218,8 +218,10 @@ if ($action === 'update') {
 }
 
 if ($action === 'estado') {
-    $id     = (int)($_POST['id']     ?? 0);
-    $estado = $_POST['estado']       ?? '';
+    $id         = (int)($_POST['id']    ?? 0);
+    $estado     = $_POST['estado']      ?? '';
+    $medio_pago = in_array($_POST['medio_pago'] ?? '', ['efectivo','transferencia'])
+                  ? $_POST['medio_pago'] : 'efectivo';
     $allowed = ['borrador', 'emitido', 'cobrado'];
     if ($id > 0 && in_array($estado, $allowed)) {
         $row = $db->prepare("
@@ -234,18 +236,30 @@ if ($action === 'estado') {
             $estadoAnterior = $row['estado'];
             $db->beginTransaction();
             try {
-                $db->prepare("UPDATE comprobantes SET estado=? WHERE id=?")->execute([$estado, $id]);
+                if ($estado === 'cobrado') {
+                    $db->prepare("UPDATE comprobantes SET estado=?, medio_pago=? WHERE id=?")
+                       ->execute([$estado, $medio_pago, $id]);
+                } else {
+                    $db->prepare("UPDATE comprobantes SET estado=? WHERE id=?")->execute([$estado, $id]);
+                }
 
                 if ($estado === 'cobrado' && $estadoAnterior !== 'cobrado') {
-                    // Op 2: ingreso en Patrimonio al cobrar
-                    $desc = 'Cobro comprobante #' . $row['numero'] . ' - ' . $row['cliente'];
+                    $desc = 'Cobro comp. #' . $row['numero'] . ' — ' . $row['cliente'];
+                    // movimientos_cuenta (existente)
                     $db->prepare("
                         INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, comprobante_id)
                         VALUES (?, 'patrimonio', 'cargo', ?, ?, ?)
                     ")->execute([date('Y-m-d'), $row['total'], $desc, $id]);
+                    // caja_movimientos (nuevo)
+                    $db->prepare("
+                        INSERT INTO caja_movimientos (tipo, concepto, medio_pago, monto, descripcion, comprobante_id, usuario_id)
+                        VALUES ('ingreso', 'venta', ?, ?, ?, ?, ?)
+                    ")->execute([$medio_pago, $row['total'], $desc, $id, $_SESSION['usuario_id']]);
+
                 } elseif ($estadoAnterior === 'cobrado' && $estado !== 'cobrado') {
-                    // Revertir cobro: eliminar movimiento asociado
                     $db->prepare("DELETE FROM movimientos_cuenta WHERE comprobante_id = ?")->execute([$id]);
+                    $db->prepare("DELETE FROM caja_movimientos   WHERE comprobante_id = ?")->execute([$id]);
+                    $db->prepare("UPDATE comprobantes SET medio_pago = NULL WHERE id = ?")->execute([$id]);
                 }
 
                 $db->commit();

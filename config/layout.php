@@ -37,7 +37,11 @@ function navLink(string $href, string $icon, string $label, string $current): st
             <?= navLink(BASE_PATH . '/comprobantes/', '🧾', 'Comprobantes', 'comprobantes') ?>
             <?= navLink(BASE_PATH . '/pedidos_galpon/', '📦', 'Pedidos galpón', 'pedidos_galpon') ?>
             <?= navLink(BASE_PATH . '/cuentas/', '💰', 'Cuentas', 'cuentas') ?>
-            <?= navLink(BASE_PATH . '/reportes/', '📊', 'Reportes', 'reportes') ?>
+            <?= navLink(BASE_PATH . '/reportes/', '📊', (($_SESSION['rol'] ?? 'admin') === 'admin' ? 'Reportes' : 'Pedidos y Clientes'), 'reportes') ?>
+            <?php if (($_SESSION['rol'] ?? 'admin') === 'admin'): ?>
+            <div class="nav-section">Administración</div>
+            <?= navLink(BASE_PATH . '/caja/', '💵', 'Caja de Plata', 'caja') ?>
+            <?php endif; ?>
             <div class="nav-section">Catálogo</div>
             <?= navLink(BASE_PATH . '/catalogo/', '📄', 'Generar Catálogo', 'catalogo') ?>
         </nav>

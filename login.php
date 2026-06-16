@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($usuario && $password) {
         try {
             $db   = getDB();
-            $stmt = $db->prepare("SELECT id, nombre_real, password_hash, activo FROM usuarios WHERE usuario = ? LIMIT 1");
+            $stmt = $db->prepare("SELECT id, nombre_real, password_hash, activo, rol FROM usuarios WHERE usuario = ? LIMIT 1");
             $stmt->execute([$usuario]);
             $user = $stmt->fetch();
 
@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['usuario_id']  = (int)$user['id'];
                 $_SESSION['nombre_real'] = $user['nombre_real'];
                 $_SESSION['usuario']     = $usuario;
+                $_SESSION['rol']         = $user['rol'] ?? 'admin';
 
                 $db->prepare("UPDATE usuarios SET last_login = NOW() WHERE id = ?")->execute([$user['id']]);
                 $db->prepare("INSERT INTO sesiones (usuario_id, ip_address, user_agent) VALUES (?, ?, ?)")

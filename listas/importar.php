@@ -188,9 +188,13 @@ if (!$isPost && $step === 'preview') {
         ];
     }
 
-    // Guardar en sesión (TTL 30 min)
+    // Guardar en sesión (TTL 30 min).
+    // auth.php llamó session_write_close() antes — hay que reabrir para que los
+    // datos persistan al archivo de sesión y estén disponibles en el POST siguiente.
+    session_start();
     $_SESSION['import_preview']    = $previewData;
     $_SESSION['import_preview_ts'] = time();
+    session_write_close();
 
     $pageTitle     = 'Revisión de cambios';
     $topbarActions = '<a href="' . BASE_PATH . '/listas/importar.php" class="btn btn-secondary">← Cancelar</a>';

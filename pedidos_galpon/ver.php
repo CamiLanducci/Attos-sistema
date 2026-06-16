@@ -113,7 +113,7 @@ require_once __DIR__ . '/../config/layout.php';
                     <?php else: ?>
                         <?php foreach ($items as $it):
                             $cantRec = $it['cantidad_recibida'];
-                            $difiere = $esRecibido && $cantRec !== null && (int)$cantRec !== (int)$it['cantidad_pedida'];
+                            $difiere = $esRecibido && $cantRec !== null && (int)$cantRec !== (int)$it['cajas'];
                         ?>
                         <tr>
                             <td class="text-muted" style="font-family:monospace; font-size:11px;"><?= e($it['codigo'] ?: '—') ?></td>
@@ -209,7 +209,7 @@ require_once __DIR__ . '/../config/layout.php';
                         </span>
                         <input type="number" name="cantidad_recibida[<?= $it['id'] ?>]"
                                class="form-control" min="0"
-                               placeholder="<?= (int)$it['cantidad_pedida'] ?>"
+                               placeholder="<?= (int)$it['cajas'] ?>"
                                style="width:70px; text-align:center;">
                     </div>
                     <?php endforeach; ?>

@@ -1,7 +1,9 @@
 ﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
-$pageTitle = 'Reportes';
+
+$esAdmin   = ($_SESSION['rol'] ?? 'admin') === 'admin';
+$pageTitle = $esAdmin ? 'Reportes' : 'Pedidos y Clientes';
 
 $db = getDB();
 
@@ -32,7 +34,9 @@ if ($cliente_id) {
     $params[':cliente_id'] = $cliente_id;
 }
 
-// Totales del período
+// Totales del período (solo admin)
+$ingresos = 0; $costos = 0; $ganancia = 0;
+if ($esAdmin) :
 $totales = $db->prepare("
     SELECT
         COALESCE(SUM(c.total), 0) AS ingresos,
@@ -50,6 +54,7 @@ $tot = $totales->fetch();
 $ingresos = (float)$tot['ingresos'];
 $costos   = (float)$tot['costos'];
 $ganancia = $ingresos - $costos;
+endif;
 
 // Comprobantes del período
 $comps = $db->prepare("
@@ -102,7 +107,11 @@ $meses = $db->query("
     LIMIT 24
 ")->fetchAll();
 
-// ── Datos para tablas de ranking ─────────────────────────────────────────────
+// ── Datos para tablas de ranking (solo admin) ────────────────────────────────
+$graficoClientes  = [];
+$graficoProductos = [];
+$porLista         = [];
+if ($esAdmin) :
 
 // Ganancia por cliente en el período seleccionado
 $graficoClientes = $db->prepare("
@@ -142,6 +151,7 @@ $graficoProductos = $db->prepare("
 ");
 $graficoProductos->execute($params);
 $graficoProductos = $graficoProductos->fetchAll();
+endif; // esAdmin rankings
 
 require_once __DIR__ . '/../config/layout.php';
 ?>
@@ -189,7 +199,8 @@ require_once __DIR__ . '/../config/layout.php';
     </div>
 </div>
 
-<!-- Totales -->
+<!-- Totales (solo admin) -->
+<?php if ($esAdmin): ?>
 <div class="reporte-grid" style="margin-bottom:24px;">
     <div class="reporte-total">
         <div class="label">Ingresos</div>
@@ -208,7 +219,10 @@ require_once __DIR__ . '/../config/layout.php';
     </div>
 </div>
 
-<!-- Por cliente y por producto -->
+<?php endif; // totales ?>
+
+<!-- Por cliente y por producto (solo admin) -->
+<?php if ($esAdmin): ?>
 <div class="d-flex gap-2" style="margin-bottom:24px; align-items:flex-start; flex-wrap:wrap;">
 
     <!-- Ganancia por cliente -->
@@ -284,6 +298,7 @@ require_once __DIR__ . '/../config/layout.php';
     </div>
 
 </div>
+<?php endif; // rankings ?>
 
 <div class="d-flex gap-2" style="align-items:flex-start;">
 
@@ -301,8 +316,8 @@ require_once __DIR__ . '/../config/layout.php';
                         <th>Fecha</th>
                         <th>Cliente</th>
                         <th class="text-right">Total</th>
-                        <th class="text-right">Costo</th>
-                        <th class="text-right">Ganancia</th>
+                        <?php if ($esAdmin): ?><th class="text-right">Costo</th>
+                        <th class="text-right">Ganancia</th><?php endif; ?>
                         <th>Estado</th>
                         <th></th>
                     </tr>
@@ -321,8 +336,10 @@ require_once __DIR__ . '/../config/layout.php';
                         <td><?= date('d/m', strtotime($c['fecha'])) ?></td>
                         <td><?= e($c['cliente']) ?></td>
                         <td class="text-right fw-bold"><?= precio((float)$c['total']) ?></td>
+                        <?php if ($esAdmin): ?>
                         <td class="text-right text-muted"><?= precio((float)$c['costo_total']) ?></td>
                         <td class="text-right fw-bold text-bordo"><?= precio((float)$c['ganancia']) ?></td>
+                        <?php endif; ?>
                         <td><span class="badge <?= $cls ?>"><?= $c['estado'] ?></span></td>
                         <td><a href="<?= BASE_PATH ?>/comprobantes/ver.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-secondary">Ver</a></td>
                     </tr>
@@ -333,7 +350,8 @@ require_once __DIR__ . '/../config/layout.php';
         </div>
     </div>
 
-    <!-- Por lista -->
+    <!-- Por lista (solo admin) -->
+    <?php if ($esAdmin): ?>
     <div class="card" style="flex:1; min-width:220px;">
         <div class="card-header"><span class="card-title">Por lista</span></div>
         <div class="card-body">
@@ -349,6 +367,7 @@ require_once __DIR__ . '/../config/layout.php';
             <?php endforeach; ?>
         </div>
     </div>
+    <?php endif; // por lista ?>
 
 </div>
 

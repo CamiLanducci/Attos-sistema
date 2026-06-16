@@ -1,6 +1,14 @@
 ﻿<?php
+error_reporting(0); // suprime warnings que contaminarían el stream PNG
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
+
+if (!function_exists('imagecreatetruecolor')) {
+    while (ob_get_level()) ob_end_clean();
+    http_response_code(500);
+    header('Content-Type: text/plain');
+    exit('Error: la extensión GD de PHP no está habilitada. Activala en php.ini (extension=gd).');
+}
 
 $db = getDB();
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -179,6 +187,7 @@ imgText($img, $footerText, $MARGIN, $fy, $cGray, 12, $fontTTF, 'center', $TW);
 
 // ── Output ────────────────────────────────────────────────────────────────────
 $filename = 'pedido_' . $id . '_' . date('Ymd') . '.png';
+while (ob_get_level()) ob_end_clean(); // limpia TODOS los niveles de buffer
 header('Content-Type: image/png');
 header('Content-Disposition: inline; filename="' . $filename . '"');
 header('Cache-Control: no-store');
