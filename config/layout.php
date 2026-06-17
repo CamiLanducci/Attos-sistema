@@ -1,7 +1,6 @@
 ﻿<?php
 // Incluir desde cualquier módulo: require_once __DIR__ . '/../config/layout.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
-$base = str_repeat('../', substr_count($_SERVER['SCRIPT_NAME'], '/') - 2);
 
 function navLink(string $href, string $icon, string $label, string $current): string {
     $active = strpos($_SERVER['SCRIPT_NAME'], $href) !== false ? ' active' : '';
