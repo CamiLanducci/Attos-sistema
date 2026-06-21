@@ -21,7 +21,7 @@ if ($edit) {
     }
     $costoBase = !empty($precios) ? reset($precios) : 0.0;
 } else {
-    $producto  = ['codigo' => '', 'nombre' => '', 'marca' => '', 'unidades_por_caja' => 6, 'precio_por_pack' => 0, 'contenido' => '', 'descripcion' => ''];
+    $producto  = ['codigo' => '', 'nombre' => '', 'marca' => '', 'unidades_por_caja' => 6, 'precio_por_pack' => 0, 'contenido' => '', 'descripcion' => '', 'categoria' => ''];
     $precios   = [];
     $costoBase = 0.0;
 }
@@ -38,6 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $precio_por_pack   = ($_POST['precio_por_pack'] ?? '0') === '1' ? 1 : 0;
     $contenido         = trim($_POST['contenido']       ?? '');
     $descripcion       = trim($_POST['descripcion']     ?? '');
+    $categorias_validas = ['', 'Cerveza', 'Gaseosa y Energizante', 'Vino y Espirituosas', 'Otro'];
+    $categoria         = in_array($_POST['categoria'] ?? '', $categorias_validas) ? ($_POST['categoria'] ?? '') : '';
     $costoBase         = (float)str_replace(',', '.', trim($_POST['costo_base'] ?? '0'));
 
     if ($nombre === '') $errors[] = 'El nombre es obligatorio.';
@@ -45,11 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         if ($edit) {
-            $stmt = $db->prepare("UPDATE productos SET codigo=?, nombre=?, marca=?, unidades_por_caja=?, precio_por_pack=?, contenido=?, descripcion=? WHERE id=?");
-            $stmt->execute([$codigo, $nombre, $marca, $unidades_por_caja, $precio_por_pack, $contenido, $descripcion, $id]);
+            $stmt = $db->prepare("UPDATE productos SET codigo=?, nombre=?, marca=?, unidades_por_caja=?, precio_por_pack=?, contenido=?, descripcion=?, categoria=? WHERE id=?");
+            $stmt->execute([$codigo, $nombre, $marca, $unidades_por_caja, $precio_por_pack, $contenido, $descripcion, $categoria ?: null, $id]);
         } else {
-            $stmt = $db->prepare("INSERT INTO productos (codigo, nombre, marca, unidades_por_caja, precio_por_pack, contenido, descripcion) VALUES (?,?,?,?,?,?,?)");
-            $stmt->execute([$codigo, $nombre, $marca, $unidades_por_caja, $precio_por_pack, $contenido, $descripcion]);
+            $stmt = $db->prepare("INSERT INTO productos (codigo, nombre, marca, unidades_por_caja, precio_por_pack, contenido, descripcion, categoria) VALUES (?,?,?,?,?,?,?,?)");
+            $stmt->execute([$codigo, $nombre, $marca, $unidades_por_caja, $precio_por_pack, $contenido, $descripcion, $categoria ?: null]);
             $id = (int)$db->lastInsertId();
         }
 
@@ -68,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect(BASE_PATH . '/productos/?msg=' . ($edit ? 'updated' : 'created'));
     }
 
-    $producto = compact('codigo', 'nombre', 'marca', 'unidades_por_caja', 'precio_por_pack', 'contenido', 'descripcion');
+    $producto = compact('codigo', 'nombre', 'marca', 'unidades_por_caja', 'precio_por_pack', 'contenido', 'descripcion', 'categoria');
 }
 
 $pageTitle     = $edit ? 'Editar producto' : 'Nuevo producto';
@@ -111,7 +113,7 @@ require_once __DIR__ . '/../config/layout.php';
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Unidades por caja *</label>
-                    <input type="number" name="unidades_por_caja" class="form-control" min="1" value="<?= (int)($producto['unidades_por_caja'] ?? 6) ?>" required>
+                    <input type="number" name="unidades_por_caja" class="form-control" min="1" value="<?= (int)($producto['unidades_por_caja'] ?? 6) ?>" required oninput="actualizarPrecios()">
                 </div>
                 <div class="form-group" style="flex:2;">
                     <label class="form-label">Contenido (ej: 750ml, 1L x 12)</label>
@@ -119,21 +121,36 @@ require_once __DIR__ . '/../config/layout.php';
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">Tipo de costo cargado</label>
+                <label class="form-label">Categoría</label>
+                <select name="categoria" id="sel-categoria" class="form-control" style="max-width:280px;" onchange="actualizarPrecios()">
+                    <option value=""         <?= ($producto['categoria'] ?? '') === ''                      ? 'selected' : '' ?>>— Sin categoría —</option>
+                    <option value="Cerveza"  <?= ($producto['categoria'] ?? '') === 'Cerveza'               ? 'selected' : '' ?>>🍺 Cerveza</option>
+                    <option value="Gaseosa y Energizante" <?= ($producto['categoria'] ?? '') === 'Gaseosa y Energizante' ? 'selected' : '' ?>>🥤 Gaseosa / Energizante</option>
+                    <option value="Vino y Espirituosas"   <?= ($producto['categoria'] ?? '') === 'Vino y Espirituosas'   ? 'selected' : '' ?>>🍷 Vino / Espirituosas</option>
+                    <option value="Otro"     <?= ($producto['categoria'] ?? '') === 'Otro'                  ? 'selected' : '' ?>>• Otro</option>
+                </select>
+                <small class="text-muted" style="font-size:11px; margin-top:4px; display:block;">
+                    Usada para calcular precios: las cervezas dividen el costo del bulto para obtener el precio unitario.
+                </small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Costo ingresado</label>
                 <div style="display:flex; gap:20px; margin-top:4px;">
                     <label style="display:flex; align-items:center; gap:7px; cursor:pointer; font-size:13px;">
-                        <input type="radio" name="precio_por_pack" value="0"
-                               <?= !($producto['precio_por_pack'] ?? 0) ? 'checked' : '' ?>>
+                        <input type="radio" name="precio_por_pack" value="0" id="radio-unit"
+                               <?= !($producto['precio_por_pack'] ?? 0) ? 'checked' : '' ?>
+                               onchange="actualizarPrecios()">
                         Por unidad (Fernet, vino, aceite…)
                     </label>
                     <label style="display:flex; align-items:center; gap:7px; cursor:pointer; font-size:13px;">
-                        <input type="radio" name="precio_por_pack" value="1"
-                               <?= ($producto['precio_por_pack'] ?? 0) ? 'checked' : '' ?>>
-                        Por pack completo (cerveza, gaseosa, energizante)
+                        <input type="radio" name="precio_por_pack" value="1" id="radio-pack"
+                               <?= ($producto['precio_por_pack'] ?? 0) ? 'checked' : '' ?>
+                               onchange="actualizarPrecios()">
+                        Por bulto/pack completo (cerveza, gaseosa…)
                     </label>
                 </div>
                 <small class="text-muted" style="font-size:11px; margin-top:4px; display:block;">
-                    Determina cómo se calcula el precio de caja y unitario en comprobantes y catálogo.
+                    Indica si el costo base ingresado es el precio de una unidad o de un pack/bulto entero.
                 </small>
             </div>
 
@@ -153,7 +170,7 @@ require_once __DIR__ . '/../config/layout.php';
                         <tr style="font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.4px;">
                             <th style="text-align:left; padding:4px 8px; font-weight:600;">Lista</th>
                             <th style="text-align:right; padding:4px 8px; font-weight:600;">Margen</th>
-                            <th style="text-align:right; padding:4px 8px; font-weight:600;">Precio venta</th>
+                            <th style="text-align:right; padding:4px 8px; font-weight:600;">Precios</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -185,16 +202,44 @@ function toggleMarcaCustom(val) {
     document.getElementById('marca-custom').style.display = val === '' ? '' : 'none';
 }
 const listasData = <?= json_encode(array_map(fn($l) => ['id' => (int)$l['id'], 'margen' => (float)$l['margen']], $listas)) ?>;
+const UPC_BASE   = <?= (int)($producto['unidades_por_caja'] ?? 6) ?>;
+
 function actualizarPrecios() {
-    const raw   = document.getElementById('costo_base').value.replace(',', '.');
-    const costo = parseFloat(raw) || 0;
+    const raw      = document.getElementById('costo_base').value.replace(',', '.');
+    const costo    = parseFloat(raw) || 0;
+    const cat      = document.getElementById('sel-categoria').value;
+    const esPack   = document.querySelector('input[name="precio_por_pack"]:checked')?.value === '1';
+    const upc      = parseInt(document.querySelector('input[name="unidades_por_caja"]')?.value) || UPC_BASE;
+    const esCerv   = cat.toLowerCase().includes('cerveza');
+    const esGas    = cat.toLowerCase().includes('gaseosa') || cat.toLowerCase().includes('energi');
+
     listasData.forEach(l => {
-        const precio = costo > 0 ? costo * (1 + l.margen / 100) : 0;
         const el = document.getElementById('prev-' + l.id);
-        if (el) el.textContent = precio > 0
-            ? '$' + precio.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2})
-            : '—';
+        if (!el) return;
+        if (!costo) { el.textContent = '—'; return; }
+
+        let precioUnit, precioCaja;
+        if (esCerv || (esPack && !esGas)) {
+            // Cerveza: costo = precio de venta del bulto, unidad = bulto / upc
+            precioCaja = costo;
+            precioUnit = costo / upc;
+        } else if (esGas && esPack) {
+            // Gaseosa con pack: costo = precio de costo del pack, se aplica margen
+            precioCaja = costo * (1 + l.margen / 100);
+            precioUnit = precioCaja / upc;
+        } else {
+            // Regular: costo = precio de venta unitario
+            precioUnit = costo;
+            precioCaja = costo * upc;
+        }
+
+        el.innerHTML =
+            '<span style="color:#888;">ud: </span>' + fmt(precioUnit) +
+            ' &nbsp; <span style="color:#631636; font-weight:700;">bulto: ' + fmt(precioCaja) + '</span>';
     });
+}
+function fmt(n) {
+    return '$' + n.toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 }
 document.addEventListener('DOMContentLoaded', () => {
     toggleMarcaCustom(document.getElementById('select-marca').value);
