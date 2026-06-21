@@ -415,10 +415,23 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
     echo '<div class="card-header"><span class="card-title">Progreso de importación</span></div>';
     echo '<div class="card-body">';
 
+    $marcasCerveza = [
+        'corona', 'quilmes', 'brahma', 'heineken', 'stella artois', 'stella',
+        'isenbeck', 'warsteiner', 'schneider', 'palermo', 'imperial',
+        'budweiser', 'amstel', 'kunstmann', 'patagonia', 'andina', 'porter',
+    ];
+    $esMarcaCerveza = function(string $marca) use ($marcasCerveza): bool {
+        $ml = strtolower(trim($marca));
+        foreach ($marcasCerveza as $m) {
+            if (strpos($ml, $m) !== false) return true;
+        }
+        return false;
+    };
+
     $stmtByCode = $db->prepare("SELECT id, origen FROM productos WHERE codigo = ? LIMIT 1");
     $stmtInsert = $db->prepare("
-        INSERT INTO productos (codigo, nombre, marca, unidades_por_caja, origen, activo)
-        VALUES (?,?,?,?,'url',1)
+        INSERT INTO productos (codigo, nombre, marca, unidades_por_caja, precio_por_pack, categoria, origen, activo)
+        VALUES (?,?,?,?,?,?,'url',1)
     ");
     $stmtUpdate = $db->prepare("
         UPDATE productos
@@ -462,6 +475,8 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 $precioUnidad = $prod['precio_unidad'];
                 $precioCaja   = round($precioUnidad * $pack, 2);
 
+                $esCerv = $esMarcaCerveza($marca);
+
                 $stmtByCode->execute([$codigo]);
                 $existente = $stmtByCode->fetch();
 
@@ -473,13 +488,17 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                     $productoId = (int)$existente['id'];
                     $cntActualizados++;
                 } else {
-                    $stmtInsert->execute([$codigo, $nombre, $marca, $pack]);
+                    $packFlag = $esCerv ? 1 : 0;
+                    $catFlag  = $esCerv ? 'Cerveza' : null;
+                    $stmtInsert->execute([$codigo, $nombre, $marca, $pack, $packFlag, $catFlag]);
                     $productoId = (int)$db->lastInsertId();
-                    echo "[nuevo] {$nombre} [{$codigo}]\n";
+                    echo "[nuevo] {$nombre} [{$codigo}]" . ($esCerv ? " [cerveza]" : "") . "\n";
                     $cntNuevos++;
                 }
 
-                $stmtLpUp->execute([$listaId, $productoId, $precioUnidad, $precioCaja]);
+                // Para cervezas, costo_caja = costo (el precio importado ya es de la caja)
+                $costoParaCaja = $esCerv ? $precioUnidad : $precioCaja;
+                $stmtLpUp->execute([$listaId, $productoId, $precioUnidad, $costoParaCaja]);
 
                 if (($i + 1) % 30 === 0) flush();
                 if (($i + 1) % 100 === 0) {

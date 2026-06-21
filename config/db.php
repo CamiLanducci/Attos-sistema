@@ -120,8 +120,24 @@ function esGaseosaOEnergizante(string $cat): bool {
         || strpos($cat, 'soda')    !== false;
 }
 
-function esCerveza(string $cat): bool {
-    return strpos(strtolower(trim($cat)), 'cerveza') !== false;
+// Marcas de cerveza cuyo nombre no contiene la palabra "cerveza"
+const MARCAS_CERVEZA_EXTRA = [
+    'corona', 'andes', 'grolsch', 'mazbier',
+    'warsteiner', 'palermo', 'budweiser', 'amstel',
+    'kunstmann', 'patagonia', 'andina', 'porter',
+];
+
+function esCerveza(string $cat, string $marca = ''): bool {
+    // Detecta por categoría o por palabra "cerveza" en la marca (igual que el catálogo)
+    $catL   = strtolower(trim($cat));
+    $marcaL = strtolower(trim($marca));
+    if (strpos($catL,   'cerveza') !== false) return true;
+    if (strpos($marcaL, 'cerveza') !== false) return true;
+    // Fallback: marcas de cerveza sin "cerveza" en el nombre
+    foreach (MARCAS_CERVEZA_EXTRA as $m) {
+        if (strpos($marcaL, $m) !== false) return true;
+    }
+    return false;
 }
 
 function getPrecioProductoLista(int $productoId, int $listaId): ?array {
@@ -151,7 +167,7 @@ function listarProductosConPrecio(int $listaId): array {
     return $stmt->fetchAll();
 }
 
-function calcularPreciosProducto(float $costo, float $margen, int $upc, int $precioPorPack, string $categoria): array {
+function calcularPreciosProducto(float $costo, float $margen, int $upc, int $precioPorPack, string $categoria, string $marca = ''): array {
     $upc = max(1, $upc);
     $esGaseosa = esGaseosaOEnergizante($categoria);
     if ($esGaseosa) {
@@ -164,16 +180,15 @@ function calcularPreciosProducto(float $costo, float $margen, int $upc, int $pre
             $precioCaja = $precioUnit * $upc;
             $costoUnit  = $costo;
         }
+    } elseif (esCerveza($categoria, $marca)) {
+        // Cerveza: costo almacenado = precio de la caja; unidad = caja ÷ upc
+        $precioCaja = $costo;
+        $precioUnit = $costo / $upc;
+        $costoUnit  = $precioUnit / (1 + $margen / 100);
     } else {
-        if ($precioPorPack || esCerveza($categoria)) {
-            $precioCaja = $costo;
-            $precioUnit = $costo / $upc;
-            $costoUnit  = $precioUnit / (1 + $margen / 100);
-        } else {
-            $precioUnit = $costo;
-            $precioCaja = $costo * $upc;
-            $costoUnit  = $costo / (1 + $margen / 100);
-        }
+        $precioUnit = $costo;
+        $precioCaja = $costo * $upc;
+        $costoUnit  = $costo / (1 + $margen / 100);
     }
     return [
         'precio_unit' => $precioUnit,

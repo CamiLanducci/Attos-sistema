@@ -73,7 +73,8 @@ foreach ($todosProductos as $p) {
         $margenPorLista[$listaId] ?? 0.0,
         (int)$p['unidades_por_caja'],
         (int)($p['precio_por_pack'] ?? 0),
-        $p['categoria']
+        $p['categoria'],
+        $p['marca'] ?? ''
     );
     $productosPorLista[$listaId][] = [
         'id'          => (int)$p['id'],
@@ -126,16 +127,17 @@ require_once __DIR__ . '/../config/layout.php';
                 <div class="form-row">
                     <div class="form-group" style="flex:2;">
                         <label class="form-label">Cliente *</label>
-                        <select name="cliente_id" id="sel-cliente" class="form-control" required>
-                            <option value="">— Seleccionar cliente —</option>
-                            <?php foreach ($clientes as $cl): ?>
-                                <option value="<?= $cl['id'] ?>"
-                                    data-lista="<?= (int)($cl['lista_id'] ?? 0) ?>"
-                                    <?= ($editMode && (int)$cl['id'] === (int)$editComp['cliente_id']) ? 'selected' : '' ?>>
-                                    <?= e($cl['nombre']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <div class="prod-wrap">
+                            <input type="text" id="input-cliente" class="form-control"
+                                   placeholder="Buscar cliente por nombre…"
+                                   autocomplete="off"
+                                   oninput="buscarCliente(this.value)"
+                                   onkeydown="navClienteDropdown(event)"
+                                   onblur="cerrarClienteDropdown()">
+                            <div id="dropdown-cliente" class="prod-dropdown" style="display:none;"></div>
+                            <input type="hidden" name="cliente_id" id="sel-cliente"
+                                   value="<?= $editMode ? (int)$editComp['cliente_id'] : '' ?>">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Lista de precios *</label>
@@ -291,6 +293,11 @@ require_once __DIR__ . '/../config/layout.php';
 const PRODUCTOS_POR_LISTA = <?= json_encode($productosPorLista) ?>;
 const EDIT_MODE  = <?= $editMode ? 'true' : 'false' ?>;
 const EDIT_ITEMS = <?= json_encode($editItemsJson) ?>;
+const CLIENTES   = <?= json_encode(array_map(fn($c) => [
+    'id'       => (int)$c['id'],
+    'nombre'   => $c['nombre'],
+    'lista_id' => (int)($c['lista_id'] ?? 0),
+], $clientes)) ?>;
 
 let PRODUCTOS = [];
 let PROD_MAP  = {};
@@ -410,6 +417,62 @@ function precargarItem(item) {
     }
 
     calcularFila(idx);
+}
+
+/* ── Búsqueda de clientes ──────────────────────────────────────────────────── */
+let _clDdCache = [];
+
+function buscarCliente(query) {
+    const dd = document.getElementById('dropdown-cliente');
+    document.getElementById('sel-cliente').value = '';
+    query = query.trim().toLowerCase();
+    if (!query) { dd.style.display = 'none'; return; }
+    const matches = CLIENTES.filter(c => c.nombre.toLowerCase().includes(query)).slice(0, 12);
+    _clDdCache = matches;
+    if (!matches.length) { dd.style.display = 'none'; return; }
+    dd.innerHTML = matches.map((c, i) => `
+        <div class="prod-option" data-i="${i}" onmousedown="seleccionarCliente(${c.id})">
+            <span class="opt-nom">${escHtml(c.nombre)}</span>
+        </div>`).join('');
+    dd.style.display = 'block';
+}
+
+function seleccionarCliente(clienteId) {
+    const c = CLIENTES.find(c => c.id === clienteId);
+    if (!c) return;
+    document.getElementById('input-cliente').value = c.nombre;
+    document.getElementById('sel-cliente').value   = clienteId;
+    document.getElementById('dropdown-cliente').style.display = 'none';
+    const selLista = document.getElementById('sel-lista');
+    if (c.lista_id && !selLista.value) {
+        selLista.value = c.lista_id;
+        actualizarPrecios();
+    }
+}
+
+function navClienteDropdown(e) {
+    const dd   = document.getElementById('dropdown-cliente');
+    if (dd.style.display === 'none') return;
+    const opts = dd.querySelectorAll('.prod-option');
+    const cur  = dd.querySelector('.prod-option.dd-active');
+    let   ci   = cur ? parseInt(cur.dataset.i) : -1;
+    if (e.key === 'ArrowDown')       { e.preventDefault(); ci = Math.min(ci + 1, opts.length - 1); }
+    else if (e.key === 'ArrowUp')    { e.preventDefault(); ci = Math.max(ci - 1, 0); }
+    else if (e.key === 'Enter' && cur) {
+        e.preventDefault();
+        if (_clDdCache[ci]) seleccionarCliente(_clDdCache[ci].id);
+        return;
+    } else if (e.key === 'Escape') { dd.style.display = 'none'; return; }
+    else return;
+    opts.forEach(o => o.classList.remove('dd-active'));
+    if (opts[ci]) opts[ci].classList.add('dd-active');
+}
+
+function cerrarClienteDropdown() {
+    setTimeout(() => {
+        const dd = document.getElementById('dropdown-cliente');
+        if (dd) dd.style.display = 'none';
+    }, 160);
 }
 
 /* ── Búsqueda typeahead ────────────────────────────────────────────────────── */
@@ -591,6 +654,9 @@ function eliminarItem(idx) {
 }
 
 function validarForm() {
+    if (!document.getElementById('sel-cliente').value) {
+        alert('Seleccioná un cliente.'); return false;
+    }
     const rows = document.querySelectorAll('#items-body tr[id^="item-row-"]');
     let validRows = 0;
     for (const tr of rows) {
@@ -644,22 +710,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const tipoEntrega = document.querySelector('input[name="tipo_entrega"]:checked')?.value || 'envio';
     toggleEntrega(tipoEntrega);
 
-    if (EDIT_MODE && EDIT_ITEMS.length > 0) {
-        const listaId = parseInt(document.getElementById('sel-lista').value) || 0;
-        if (listaId) {
-            cargarProductosDeLista(listaId);
-            EDIT_ITEMS.forEach(item => precargarItem(item));
+    if (EDIT_MODE) {
+        const editClienteId = <?= $editMode ? (int)$editComp['cliente_id'] : 0 ?>;
+        if (editClienteId) {
+            const c = CLIENTES.find(c => c.id === editClienteId);
+            if (c) document.getElementById('input-cliente').value = c.nombre;
+        }
+        if (EDIT_ITEMS.length > 0) {
+            const listaId = parseInt(document.getElementById('sel-lista').value) || 0;
+            if (listaId) {
+                cargarProductosDeLista(listaId);
+                EDIT_ITEMS.forEach(item => precargarItem(item));
+            }
         }
     }
-
-    document.getElementById('sel-cliente').addEventListener('change', function () {
-        const listaCliente = parseInt(this.selectedOptions[0]?.dataset.lista) || 0;
-        const selLista = document.getElementById('sel-lista');
-        if (listaCliente && selLista.value === '') {
-            selLista.value = listaCliente;
-            actualizarPrecios();
-        }
-    });
 });
 </script>
 

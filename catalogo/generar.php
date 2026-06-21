@@ -78,25 +78,15 @@ $rawProds  = $stmtProds->fetchAll();
 // ── Cálculo de precios ─────────────────────────────────────────────────────────
 $productos = [];
 foreach ($rawProds as $p) {
-    $upc       = max(1, (int)$p['unidades_por_caja']);
-    $esGaseosa = esGaseosaOEnergizante($p['marca'] ?? '');
-    if ($esGaseosa) {
-        if ($p['precio_por_pack']) {
-            $p['precio_caja'] = (float)$p['costo'] * (1 + $margen / 100);
-            $p['precio_unit'] = $p['precio_caja'] / $upc;
-        } else {
-            $p['precio_unit'] = (float)$p['costo'] * (1 + $margen / 100);
-            $p['precio_caja'] = $p['precio_unit'] * $upc;
-        }
-    } else {
-        if ($p['precio_por_pack'] || esCerveza($p['marca'] ?? '')) {
-            $p['precio_caja'] = (float)$p['costo'];
-            $p['precio_unit'] = $p['precio_caja'] / $upc;
-        } else {
-            $p['precio_unit'] = (float)$p['costo'];
-            $p['precio_caja'] = $p['precio_unit'] * $upc;
-        }
-    }
+    $upc = max(1, (int)$p['unidades_por_caja']);
+    $pr  = calcularPreciosProducto(
+        (float)$p['costo'], $margen, $upc,
+        (int)($p['precio_por_pack'] ?? 0),
+        $p['categoria'] ?? '',
+        $p['marca'] ?? ''
+    );
+    $p['precio_unit'] = $pr['precio_unit'];
+    $p['precio_caja'] = $pr['precio_caja'];
 
     if ($esFiltrado) {
         $cat = strtolower(trim($p['categoria'] ?? ''));

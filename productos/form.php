@@ -204,13 +204,21 @@ function toggleMarcaCustom(val) {
 const listasData = <?= json_encode(array_map(fn($l) => ['id' => (int)$l['id'], 'margen' => (float)$l['margen']], $listas)) ?>;
 const UPC_BASE   = <?= (int)($producto['unidades_por_caja'] ?? 6) ?>;
 
+const MARCAS_CERVEZA_JS = [
+    'cerveza',   // cualquier marca que ya tenga "cerveza" en el nombre
+    'corona', 'andes', 'grolsch', 'mazbier',
+    'warsteiner', 'palermo', 'budweiser', 'amstel',
+    'kunstmann', 'patagonia', 'andina', 'porter',
+];
+
 function actualizarPrecios() {
     const raw      = document.getElementById('costo_base').value.replace(',', '.');
     const costo    = parseFloat(raw) || 0;
     const cat      = document.getElementById('sel-categoria').value;
     const esPack   = document.querySelector('input[name="precio_por_pack"]:checked')?.value === '1';
     const upc      = parseInt(document.querySelector('input[name="unidades_por_caja"]')?.value) || UPC_BASE;
-    const esCerv   = cat.toLowerCase().includes('cerveza');
+    const marcaVal = (document.getElementById('select-marca')?.value || document.getElementById('marca-custom')?.value || '').toLowerCase();
+    const esCerv   = cat.toLowerCase().includes('cerveza') || MARCAS_CERVEZA_JS.some(m => marcaVal.includes(m));
     const esGas    = cat.toLowerCase().includes('gaseosa') || cat.toLowerCase().includes('energi');
 
     listasData.forEach(l => {

@@ -44,7 +44,7 @@ if ($action === 'create') {
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
         ");
         $stmtProd = $db->prepare("
-            SELECT p.nombre, p.unidades_por_caja, p.precio_por_pack, COALESCE(p.categoria,'') AS categoria, lp.costo
+            SELECT p.nombre, p.marca, p.unidades_por_caja, p.precio_por_pack, COALESCE(p.categoria,'') AS categoria, lp.costo
             FROM productos p
             JOIN lista_precios lp ON lp.producto_id = p.id AND lp.lista_id = ?
             WHERE p.id = ? AND p.activo = 1
@@ -68,7 +68,7 @@ if ($action === 'create') {
             $pr  = calcularPreciosProducto(
                 (float)$p['costo'], $margen,
                 $upc, (int)$p['precio_por_pack'],
-                $p['categoria']
+                $p['categoria'], $p['marca'] ?? ''
             );
             $pUnit         = $pr['precio_unit'];
             $pCaja         = $pr['precio_caja'];
@@ -149,7 +149,7 @@ if ($action === 'update') {
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
         ");
         $stmtProd = $db->prepare("
-            SELECT p.nombre, p.unidades_por_caja, p.precio_por_pack, COALESCE(p.categoria,'') AS categoria, lp.costo
+            SELECT p.nombre, p.marca, p.unidades_por_caja, p.precio_por_pack, COALESCE(p.categoria,'') AS categoria, lp.costo
             FROM productos p
             JOIN lista_precios lp ON lp.producto_id = p.id AND lp.lista_id = ?
             WHERE p.id = ? AND p.activo = 1
@@ -172,7 +172,7 @@ if ($action === 'update') {
             $pr  = calcularPreciosProducto(
                 (float)$p['costo'], $margen,
                 $upc, (int)$p['precio_por_pack'],
-                $p['categoria']
+                $p['categoria'], $p['marca'] ?? ''
             );
             $pUnit         = $pr['precio_unit'];
             $pCaja         = $pr['precio_caja'];

@@ -102,7 +102,7 @@ require_once __DIR__ . '/../config/layout.php';
                 $pr = calcularPreciosProducto(
                     (float)$p['costo'], (float)$lista['margen'],
                     (int)$p['unidades_por_caja'], (int)$p['precio_por_pack'],
-                    $p['categoria']
+                    $p['categoria'], $p['marca'] ?? ''
                 );
                 $precioUnit = $pr['precio_unit'];
                 $precioCaja = $pr['precio_caja'];
@@ -113,6 +113,9 @@ require_once __DIR__ . '/../config/layout.php';
                 <td><?= e($p['marca'] ?: '—') ?></td>
                 <td>
                     <strong><?= e($p['nombre']) ?></strong>
+                    <?php if ($p['precio_por_pack']): ?>
+                        <span style="font-size:10px; background:#f4ede3; color:#631636; border-radius:3px; padding:1px 5px; margin-left:4px; font-weight:600;">pack</span>
+                    <?php endif; ?>
                     <?php if ($p['contenido']): ?>
                         <span class="text-muted" style="font-size:11px; display:block;"><?= e($p['contenido']) ?></span>
                     <?php endif; ?>

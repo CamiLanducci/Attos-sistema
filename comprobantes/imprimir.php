@@ -46,6 +46,7 @@ $est = $comp['estado'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Comprobante N.° <?= str_pad($comp['numero_cliente'] ?? $comp['numero'], 4, '0', STR_PAD_LEFT) ?> — Attos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -360,19 +361,38 @@ $est = $comp['estado'];
 <div class="no-print">
     <button onclick="window.print()">🖨 Imprimir</button>
     &nbsp;
-    <button class="no-print-btn" onclick="guardarPDF()">📄 Guardar PDF</button>
+    <button class="no-print-btn" id="btn-pdf" onclick="guardarPDF()">📄 Guardar PDF</button>
     &nbsp;&nbsp;
     <a href="<?= BASE_PATH ?>/comprobantes/ver.php?id=<?= $id ?>" style="font-size:13px; color:#631636;">← Volver</a>
 </div>
 <script>
+var _pdfNombre = 'Comprobante-<?= str_pad($comp['numero_cliente'] ?? $comp['numero'], 4, '0', STR_PAD_LEFT) ?>-<?= $comp['fecha'] ?>.pdf';
+
 function guardarPDF() {
-    var t = document.title;
-    document.title = 'Comprobante-<?= str_pad($comp['numero_cliente'] ?? $comp['numero'], 4, '0', STR_PAD_LEFT) ?>-<?= $comp['fecha'] ?>';
-    window.print();
-    document.title = t;
+    if (typeof html2pdf === 'undefined') {
+        var t = document.title;
+        document.title = _pdfNombre.replace('.pdf', '');
+        window.print();
+        document.title = t;
+        return;
+    }
+    var btn = document.getElementById('btn-pdf');
+    btn.disabled = true;
+    btn.textContent = 'Generando…';
+    var opt = {
+        margin:      [8, 8, 8, 8],
+        filename:    _pdfNombre,
+        image:       { type: 'jpeg', quality: 0.97 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(document.querySelector('.page')).save().then(function() {
+        btn.disabled = false;
+        btn.textContent = '📄 Guardar PDF';
+    });
 }
 <?php if (($_GET['pdf'] ?? '') === '1'): ?>
-window.onload = function() { window.print(); };
+window.addEventListener('load', function() { guardarPDF(); });
 <?php endif; ?>
 </script>
 
