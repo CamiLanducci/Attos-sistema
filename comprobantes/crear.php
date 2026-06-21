@@ -218,6 +218,15 @@ require_once __DIR__ . '/../config/layout.php';
                 </div>
 
                 <div class="d-flex justify-between mb-1">
+                    <span style="color:var(--bordo); font-size:13px;">Total bultos</span>
+                    <span id="display-total-cajas" class="fw-bold text-bordo">0</span>
+                </div>
+                <div class="d-flex justify-between mb-1">
+                    <span style="color:var(--bordo); font-size:13px;">Total unidades sueltas</span>
+                    <span id="display-total-unidades" class="fw-bold text-bordo">0</span>
+                </div>
+                <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">
+                <div class="d-flex justify-between mb-1">
                     <span class="text-muted">Subtotal</span>
                     <span id="display-subtotal" class="fw-bold">$0,00</span>
                 </div>
@@ -543,13 +552,19 @@ function actualizarPrecios() {
 function recalcularTotal() {
     let sub  = 0;
     let desc = 0;
+    let totalCajas    = 0;
+    let totalUnidades = 0;
     document.querySelectorAll('.hidden-subtotal').forEach(inp => sub  += parseFloat(inp.value) || 0);
     document.querySelectorAll('.hidden-desc-monto').forEach(inp => desc += parseFloat(inp.value) || 0);
+    document.querySelectorAll('#items-body tr[id^="item-row-"]:not([data-unavailable]) .cant-cajas').forEach(inp => totalCajas    += parseInt(inp.value) || 0);
+    document.querySelectorAll('#items-body tr[id^="item-row-"]:not([data-unavailable]) .cant-unidades').forEach(inp => totalUnidades += parseInt(inp.value) || 0);
     const envio = parseFloat(document.getElementById('envio').value) || 0;
     const total = sub + envio - desc;
 
-    document.getElementById('display-subtotal').textContent = formatPeso(sub);
-    document.getElementById('display-total').textContent    = formatPeso(total);
+    document.getElementById('display-subtotal').textContent      = formatPeso(sub);
+    document.getElementById('display-total').textContent         = formatPeso(total);
+    document.getElementById('display-total-cajas').textContent   = totalCajas;
+    document.getElementById('display-total-unidades').textContent = totalUnidades;
     document.getElementById('hidden-subtotal').value  = sub.toFixed(2);
     document.getElementById('hidden-descuento').value = desc.toFixed(2);
     document.getElementById('hidden-total').value     = total.toFixed(2);

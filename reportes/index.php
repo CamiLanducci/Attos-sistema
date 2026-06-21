@@ -110,7 +110,6 @@ $meses = $db->query("
 // ── Datos para tablas de ranking (solo admin) ────────────────────────────────
 $graficoClientes  = [];
 $graficoProductos = [];
-$porLista         = [];
 if ($esAdmin) :
 
 // Ganancia por cliente en el período seleccionado

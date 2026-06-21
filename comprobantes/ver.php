@@ -176,6 +176,25 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
                     <span class="fw-bold">TOTAL</span>
                     <span class="fw-bold text-bordo" style="font-size:20px;"><?= precio((float)$comp['total']) ?></span>
                 </div>
+                <?php if ($comp['estado'] === 'cobrado' && $comp['medio_pago']): ?>
+                <hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">
+                <?php if ($comp['medio_pago'] === 'mixto'): ?>
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); margin-bottom:6px;">Cobro mixto</div>
+                <div class="d-flex justify-between mb-1" style="font-size:13px;">
+                    <span>💵 Efectivo</span>
+                    <span class="fw-bold"><?= precio((float)($comp['monto_efectivo']??0)) ?></span>
+                </div>
+                <div class="d-flex justify-between" style="font-size:13px;">
+                    <span>💳 Transferencia</span>
+                    <span class="fw-bold"><?= precio((float)($comp['monto_transferencia']??0)) ?></span>
+                </div>
+                <?php else: ?>
+                <div class="d-flex justify-between" style="font-size:13px;">
+                    <span class="text-muted">Cobrado con</span>
+                    <span><?= $comp['medio_pago'] === 'efectivo' ? '💵 Efectivo' : '💳 Transferencia' ?></span>
+                </div>
+                <?php endif; ?>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -193,10 +212,32 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
                     </select>
                     <div id="medio-pago-wrap" style="display:<?= $comp['estado']==='cobrado'?'block':'none' ?>; margin-bottom:10px;">
                         <label style="font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); display:block; margin-bottom:4px;">Medio de cobro</label>
-                        <select name="medio_pago" class="form-control">
+                        <select name="medio_pago" class="form-control" style="margin-bottom:8px;"
+                                onchange="toggleMixto(this.value)">
                             <option value="efectivo"      <?= ($comp['medio_pago']??'')==='efectivo'      ? 'selected':'' ?>>💵 Efectivo</option>
                             <option value="transferencia" <?= ($comp['medio_pago']??'')==='transferencia' ? 'selected':'' ?>>💳 Transferencia</option>
+                            <option value="mixto"         <?= ($comp['medio_pago']??'')==='mixto'         ? 'selected':'' ?>>💵+💳 Mixto</option>
                         </select>
+                        <div id="mixto-wrap" style="display:<?= ($comp['medio_pago']??'')==='mixto'?'block':'none' ?>;">
+                            <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">Ingresá los montos parciales (deben sumar el total del comprobante)</div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                <div>
+                                    <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:2px;">💵 Efectivo ($)</label>
+                                    <input type="number" name="monto_efectivo" id="mixto-efectivo"
+                                           class="form-control" min="0" step="0.01" placeholder="0"
+                                           value="<?= ($comp['medio_pago']??'')==='mixto' ? (float)($comp['monto_efectivo']??0) : '' ?>"
+                                           oninput="calcMixtoResto()">
+                                </div>
+                                <div>
+                                    <label style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:2px;">💳 Transferencia ($)</label>
+                                    <input type="number" name="monto_transferencia" id="mixto-transferencia"
+                                           class="form-control" min="0" step="0.01" placeholder="0"
+                                           value="<?= ($comp['medio_pago']??'')==='mixto' ? (float)($comp['monto_transferencia']??0) : '' ?>"
+                                           oninput="calcMixtoResto()">
+                                </div>
+                            </div>
+                            <div id="mixto-aviso" style="font-size:11px; margin-top:5px; display:none;"></div>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Actualizar</button>
                 </form>
@@ -212,4 +253,37 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
 
 </div>
 
+<script>
+var compTotal = <?= (float)$comp['total'] ?>;
+
+function toggleMixto(val) {
+    var wrap = document.getElementById('mixto-wrap');
+    if (!wrap) return;
+    wrap.style.display = val === 'mixto' ? 'block' : 'none';
+    if (val !== 'mixto') {
+        document.getElementById('mixto-efectivo').value = '';
+        document.getElementById('mixto-transferencia').value = '';
+        document.getElementById('mixto-aviso').style.display = 'none';
+    } else {
+        calcMixtoResto();
+    }
+}
+
+function calcMixtoResto() {
+    var ef   = parseFloat(document.getElementById('mixto-efectivo').value)      || 0;
+    var tr   = parseFloat(document.getElementById('mixto-transferencia').value) || 0;
+    var suma = Math.round((ef + tr) * 100) / 100;
+    var aviso = document.getElementById('mixto-aviso');
+    var diff  = Math.round((compTotal - suma) * 100) / 100;
+    if (Math.abs(diff) < 0.01) {
+        aviso.style.display = 'none';
+    } else {
+        aviso.style.display = 'block';
+        aviso.style.color   = '#c0392b';
+        aviso.textContent   = diff > 0
+            ? 'Faltan $' + diff.toFixed(2).replace('.', ',') + ' para completar el total'
+            : 'Los montos superan el total en $' + Math.abs(diff).toFixed(2).replace('.', ',');
+    }
+}
+</script>
 <?php require_once __DIR__ . '/../config/layout_end.php'; ?>
