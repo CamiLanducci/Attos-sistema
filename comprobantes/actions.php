@@ -252,14 +252,35 @@ if ($action === 'estado') {
         redirect(BASE_PATH . '/comprobantes/ver.php?id=' . $id);
     }
 
+    // Detectar si existen las columnas y tablas opcionales
+    $chk = $db->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                          WHERE TABLE_SCHEMA = DATABASE()
+                            AND TABLE_NAME   = 'comprobantes'
+                            AND COLUMN_NAME  = 'monto_efectivo'");
+    $chk->execute();
+    $hasMontoCols = (int)$chk->fetchColumn() > 0;
+
+    $hasCajaTbl = (int)$db->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+                                    WHERE TABLE_SCHEMA = DATABASE()
+                                      AND TABLE_NAME   = 'caja_movimientos'")->fetchColumn() > 0;
+
+    $hasMovCtaTbl = (int)$db->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+                                      WHERE TABLE_SCHEMA = DATABASE()
+                                        AND TABLE_NAME   = 'movimientos_cuenta'")->fetchColumn() > 0;
+
     $db->beginTransaction();
     try {
         if ($estado === 'cobrado') {
-            if ($medio_pago === 'mixto') {
-                $db->prepare("UPDATE comprobantes SET estado=?, medio_pago=?, monto_efectivo=?, monto_transferencia=? WHERE id=?")
-                   ->execute([$estado, $medio_pago, $montoEfectivo, $montoTransferencia, $id]);
+            if ($hasMontoCols) {
+                if ($medio_pago === 'mixto') {
+                    $db->prepare("UPDATE comprobantes SET estado=?, medio_pago=?, monto_efectivo=?, monto_transferencia=? WHERE id=?")
+                       ->execute([$estado, $medio_pago, $montoEfectivo, $montoTransferencia, $id]);
+                } else {
+                    $db->prepare("UPDATE comprobantes SET estado=?, medio_pago=?, monto_efectivo=NULL, monto_transferencia=NULL WHERE id=?")
+                       ->execute([$estado, $medio_pago, $id]);
+                }
             } else {
-                $db->prepare("UPDATE comprobantes SET estado=?, medio_pago=?, monto_efectivo=NULL, monto_transferencia=NULL WHERE id=?")
+                $db->prepare("UPDATE comprobantes SET estado=?, medio_pago=? WHERE id=?")
                    ->execute([$estado, $medio_pago, $id]);
             }
         } else {
@@ -270,37 +291,47 @@ if ($action === 'estado') {
             $total = (float)$row['total'];
             $desc  = 'Cobro comp. #' . $row['numero'] . ' — ' . $row['cliente'];
 
-            if ($total > 0) {
+            if ($total > 0 && $hasMovCtaTbl) {
                 $db->prepare("
                     INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, comprobante_id)
                     VALUES (?, 'patrimonio', 'cargo', ?, ?, ?)
                 ")->execute([date('Y-m-d'), $total, $desc, $id]);
             }
 
-            if ($medio_pago === 'mixto') {
-                if ($montoEfectivo > 0) {
+            if ($hasCajaTbl) {
+                if ($medio_pago === 'mixto') {
+                    if ($montoEfectivo > 0) {
+                        $db->prepare("
+                            INSERT INTO caja_movimientos (tipo, concepto, medio_pago, monto, descripcion, comprobante_id, usuario_id)
+                            VALUES ('ingreso', 'venta', 'efectivo', ?, ?, ?, ?)
+                        ")->execute([$montoEfectivo, $desc, $id, $_SESSION['usuario_id']]);
+                    }
+                    if ($montoTransferencia > 0) {
+                        $db->prepare("
+                            INSERT INTO caja_movimientos (tipo, concepto, medio_pago, monto, descripcion, comprobante_id, usuario_id)
+                            VALUES ('ingreso', 'venta', 'transferencia', ?, ?, ?, ?)
+                        ")->execute([$montoTransferencia, $desc, $id, $_SESSION['usuario_id']]);
+                    }
+                } else {
                     $db->prepare("
                         INSERT INTO caja_movimientos (tipo, concepto, medio_pago, monto, descripcion, comprobante_id, usuario_id)
-                        VALUES ('ingreso', 'venta', 'efectivo', ?, ?, ?, ?)
-                    ")->execute([$montoEfectivo, $desc, $id, $_SESSION['usuario_id']]);
+                        VALUES ('ingreso', 'venta', ?, ?, ?, ?, ?)
+                    ")->execute([$medio_pago, $total, $desc, $id, $_SESSION['usuario_id']]);
                 }
-                if ($montoTransferencia > 0) {
-                    $db->prepare("
-                        INSERT INTO caja_movimientos (tipo, concepto, medio_pago, monto, descripcion, comprobante_id, usuario_id)
-                        VALUES ('ingreso', 'venta', 'transferencia', ?, ?, ?, ?)
-                    ")->execute([$montoTransferencia, $desc, $id, $_SESSION['usuario_id']]);
-                }
-            } else {
-                $db->prepare("
-                    INSERT INTO caja_movimientos (tipo, concepto, medio_pago, monto, descripcion, comprobante_id, usuario_id)
-                    VALUES ('ingreso', 'venta', ?, ?, ?, ?, ?)
-                ")->execute([$medio_pago, $total, $desc, $id, $_SESSION['usuario_id']]);
             }
 
         } elseif ($estadoAnterior === 'cobrado' && $estado !== 'cobrado') {
-            $db->prepare("DELETE FROM movimientos_cuenta WHERE comprobante_id = ?")->execute([$id]);
-            $db->prepare("DELETE FROM caja_movimientos   WHERE comprobante_id = ?")->execute([$id]);
-            $db->prepare("UPDATE comprobantes SET medio_pago = NULL, monto_efectivo = NULL, monto_transferencia = NULL WHERE id = ?")->execute([$id]);
+            if ($hasMovCtaTbl) {
+                $db->prepare("DELETE FROM movimientos_cuenta WHERE comprobante_id = ?")->execute([$id]);
+            }
+            if ($hasCajaTbl) {
+                $db->prepare("DELETE FROM caja_movimientos WHERE comprobante_id = ?")->execute([$id]);
+            }
+            if ($hasMontoCols) {
+                $db->prepare("UPDATE comprobantes SET medio_pago = NULL, monto_efectivo = NULL, monto_transferencia = NULL WHERE id = ?")->execute([$id]);
+            } else {
+                $db->prepare("UPDATE comprobantes SET medio_pago = NULL WHERE id = ?")->execute([$id]);
+            }
         }
 
         $db->commit();
@@ -308,10 +339,7 @@ if ($action === 'estado') {
 
     } catch (Exception $e) {
         $db->rollBack();
-        // Pasar el mensaje de error (solo en dev) para depuración
-        $errMsg = APP_ENVIRONMENT === 'development'
-            ? '&err=' . urlencode($e->getMessage())
-            : '';
+        $errMsg = '&err=' . urlencode($e->getMessage());
         redirect(BASE_PATH . '/comprobantes/ver.php?id=' . $id . '&msg=error_db' . $errMsg);
     }
 }
