@@ -73,9 +73,9 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
 <div class="alert alert-danger">
     Error al guardar el cambio de estado.
     <?php if (!empty($_GET['err'])): ?>
-        <br><small style="opacity:.7;"><?= e($_GET['err']) ?></small>
+        <br><small style="opacity:.8;font-family:monospace;"><?= e($_GET['err']) ?></small>
     <?php else: ?>
-        Ejecutá <code>source db/update_v23.sql</code> en phpMyAdmin y volvé a intentarlo.
+        Abrí phpMyAdmin → base <strong>attos</strong> → pestaña <strong>SQL</strong>, pegá el contenido de <code>db/update_v23.sql</code> y ejecutá.
     <?php endif; ?>
 </div>
 <?php endif; ?>

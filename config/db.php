@@ -26,7 +26,7 @@ function loadEnvironment(): void {
             if ($line[0] !== '#' && strpos($line, '=') !== false) {
                 list($key, $value) = explode('=', $line, 2);
                 $key = trim($key);
-                $value = trim($value, '\'"');
+                $value = trim(trim($value), '\'"');
                 if (!getenv($key)) {
                     putenv("$key=$value");
                 }
