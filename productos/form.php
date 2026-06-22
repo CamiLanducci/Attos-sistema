@@ -19,7 +19,22 @@ if ($edit) {
     foreach ($preciosStmt->fetchAll() as $row) {
         $precios[(int)$row['lista_id']] = (float)$row['costo'];
     }
-    $costoBase = !empty($precios) ? reset($precios) : 0.0;
+
+    // Back-calcular el costo de compra desde el precio de venta almacenado.
+    // Para gaseosa+pack el costo almacenado ya es el costo de compra (sin margen).
+    $costoBase = 0.0;
+    if (!empty($precios)) {
+        $esGaseosaPackEdit = $producto['precio_por_pack'] && esGaseosaOEnergizante($producto['categoria'] ?? '');
+        $firstListId = (int)array_key_first($precios);
+        $firstCosto  = $precios[$firstListId];
+        $firstMargen = 0.0;
+        foreach ($listas as $l) {
+            if ((int)$l['id'] === $firstListId) { $firstMargen = (float)$l['margen']; break; }
+        }
+        $costoBase = ($esGaseosaPackEdit || $firstMargen <= 0)
+            ? $firstCosto
+            : round($firstCosto / (1 + $firstMargen / 100), 4);
+    }
 } else {
     $producto  = ['codigo' => '', 'nombre' => '', 'marca' => '', 'unidades_por_caja' => 6, 'precio_por_pack' => 0, 'contenido' => '', 'descripcion' => '', 'categoria' => ''];
     $precios   = [];
@@ -61,9 +76,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ON DUPLICATE KEY UPDATE costo=VALUES(costo), costo_caja=VALUES(costo_caja)
         ");
         if ($costoBase > 0) {
+            // gaseosa+pack: el costo almacenado es el costo de compra del bulto;
+            // calcularPreciosProducto aplica el margen sobre él.
+            // Todos los demás: se almacena el precio de venta ya calculado por lista,
+            // porque calcularPreciosProducto devuelve el costo almacenado tal cual.
+            $esGaseosaPack = $precio_por_pack && esGaseosaOEnergizante($categoria);
             foreach ($listas as $l) {
-                $lid = (int)$l['id'];
-                $stmtLP->execute([$lid, $id, $costoBase, $costoBase * $unidades_por_caja]);
+                $lid    = (int)$l['id'];
+                $margen = (float)$l['margen'];
+                $costoLista = $esGaseosaPack
+                    ? $costoBase
+                    : $costoBase * (1 + $margen / 100);
+                $stmtLP->execute([$lid, $id, $costoLista, $costoLista * $unidades_por_caja]);
             }
         }
 
@@ -226,19 +250,18 @@ function actualizarPrecios() {
         if (!el) return;
         if (!costo) { el.textContent = '—'; return; }
 
+        // El costo ingresado es siempre el costo de compra.
+        // Para gaseosa+pack calcularPreciosProducto aplica margen sobre el costo almacenado.
+        // Para todos los demás se pre-aplica el margen antes de guardar,
+        // por eso el preview ya lo muestra con margen.
+        const factor = 1 + l.margen / 100;
         let precioUnit, precioCaja;
-        if (esCerv || (esPack && !esGas)) {
-            // Cerveza: costo = precio de venta del bulto, unidad = bulto / upc
-            precioCaja = costo;
-            precioUnit = costo / upc;
-        } else if (esGas && esPack) {
-            // Gaseosa con pack: costo = precio de costo del pack, se aplica margen
-            precioCaja = costo * (1 + l.margen / 100);
+        if (esCerv || esPack) {
+            precioCaja = costo * factor;
             precioUnit = precioCaja / upc;
         } else {
-            // Regular: costo = precio de venta unitario
-            precioUnit = costo;
-            precioCaja = costo * upc;
+            precioUnit = costo * factor;
+            precioCaja = precioUnit * upc;
         }
 
         el.innerHTML =
