@@ -65,7 +65,14 @@ imagefilledrectangle($img, 0, 0, $W - 1, $H - 1, $cCream);
 
 // ── Fuente TTF ────────────────────────────────────────────────────────────────
 $fontTTF = null;
-foreach (['C:\\Windows\\Fonts\\arial.ttf', 'C:\\Windows\\Fonts\\Arial.ttf', 'C:\\Windows\\Fonts\\DejaVuSans.ttf'] as $f) {
+foreach ([
+    'C:\\Windows\\Fonts\\arial.ttf',
+    'C:\\Windows\\Fonts\\Arial.ttf',
+    '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf',
+    '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+    '/usr/share/fonts/liberation/LiberationSans-Regular.ttf',
+    __DIR__ . '/../vendor/mpdf/mpdf/ttfonts/DejaVuSans.ttf',  // siempre disponible
+] as $f) {
     if (file_exists($f)) { $fontTTF = $f; break; }
 }
 
@@ -103,7 +110,7 @@ function imgTrunc($text, $maxW, $font, $size) {
 }
 
 function fmtPeso($n) {
-    if ($n === null) return '—';
+    if ($n === null) return '-';
     $parts = number_format((float)$n, 2, ',', '.');
     return '$' . $parts;
 }
@@ -155,8 +162,8 @@ foreach ($items as $i => $item) {
 
     imgText($img, $cod,  $xCod,  $ry, $cDark, 13, $fontTTF);
     imgText($img, $nom,  $xProd, $ry, $cDark, 13, $fontTTF);
-    imgText($img, $cajas > 0 ? (string)$cajas : '—', $xCaj,  $ry, $cDark, 13, $fontTTF, 'center', $colCaj);
-    imgText($img, $unid  > 0 ? (string)$unid  : '—', $xUnid, $ry, $cDark, 13, $fontTTF, 'center', $colUnid);
+    imgText($img, $cajas > 0 ? (string)$cajas : '-', $xCaj,  $ry, $cDark, 13, $fontTTF, 'center', $colCaj);
+    imgText($img, $unid  > 0 ? (string)$unid  : '-', $xUnid, $ry, $cDark, 13, $fontTTF, 'center', $colUnid);
 
     imageline($img, $MARGIN, $rowTop + $ROW_H - 1, $W - $MARGIN - 1, $rowTop + $ROW_H - 1, $cBorder);
     $rowTop += $ROW_H;
@@ -172,8 +179,8 @@ $bbox = $fontTTF ? imagettfbbox(14, 0, $fontTTF, $totalLabel) : null;
 $labelW = $bbox ? abs($bbox[2] - $bbox[0]) : strlen($totalLabel) * imagefontwidth(5);
 $labelX = $xCaj - $labelW - 12;
 imgText($img, $totalLabel, (int)$labelX, $ty, $cBurgundy, 14, $fontTTF);
-imgText($img, $totalCajas    > 0 ? (string)$totalCajas    : '—', $xCaj,  $ty, $cBurgundy, 14, $fontTTF, 'center', $colCaj);
-imgText($img, $totalUnidades > 0 ? (string)$totalUnidades : '—', $xUnid, $ty, $cBurgundy, 14, $fontTTF, 'center', $colUnid);
+imgText($img, $totalCajas    > 0 ? (string)$totalCajas    : '-', $xCaj,  $ty, $cBurgundy, 14, $fontTTF, 'center', $colCaj);
+imgText($img, $totalUnidades > 0 ? (string)$totalUnidades : '-', $xUnid, $ty, $cBurgundy, 14, $fontTTF, 'center', $colUnid);
 $rowTop += $ROW_H;
 
 // ── Separador footer ──────────────────────────────────────────────────────────
