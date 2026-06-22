@@ -471,6 +471,7 @@ window.addEventListener('load', function() { guardarPDF(); });
                         <?php if (!empty($it['marca'])): ?>
                             <div class="prod-marca"><?= e($it['marca']) ?></div>
                         <?php endif; ?>
+                        <div class="prod-marca"><?= (int)$it['unidades_por_caja'] ?> ud/caja</div>
                     </td>
                     <td class="num"><?= precio((float)$it['precio_unitario']) ?></td>
                     <td class="num"><?= (int)$it['cantidad_cajas'] ?></td>

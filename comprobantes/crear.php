@@ -323,6 +323,7 @@ function buildRowHTML(idx) {
                        autocomplete="off" style="min-width:180px;">
                 <div class="prod-dropdown" id="dropdown-${idx}" style="display:none;"></div>
                 <input type="hidden" name="items[${idx}][producto_id]" class="prod-id" value="">
+                <div class="upc-display" style="font-size:11px; color:#999; margin-top:2px; display:none;"></div>
             </div>
         </td>
         <td><input type="number" name="items[${idx}][cantidad_cajas]" class="form-control cant-cajas"
@@ -406,6 +407,8 @@ function precargarItem(item) {
     tr.querySelector('.prod-search').value =
         (p.codigo ? p.codigo + ' — ' : '') + p.nombre + (p.contenido ? ' (' + p.contenido + ')' : '');
     tr.querySelector('.prod-id').value = item.producto_id;
+    const upcEl = tr.querySelector('.upc-display');
+    if (upcEl) { upcEl.textContent = p.upc + ' ud/caja'; upcEl.style.display = ''; }
     tr.querySelector('.cant-cajas').value   = item.cantidad_cajas;
     tr.querySelector('.cant-unidades').value = item.cantidad_unidades;
 
@@ -534,6 +537,8 @@ function seleccionarProducto(idx, prodId) {
     tr.querySelector('.prod-search').value =
         (p.codigo ? p.codigo + ' — ' : '') + p.nombre + (p.contenido ? ' (' + p.contenido + ')' : '');
     tr.querySelector('.prod-id').value = prodId;
+    const upcEl = tr.querySelector('.upc-display');
+    if (upcEl) { upcEl.textContent = p.upc + ' ud/caja'; upcEl.style.display = ''; }
     document.getElementById(`dropdown-${idx}`).style.display = 'none';
     calcularFila(idx);
     const cajasInput = tr.querySelector('.cant-cajas');
