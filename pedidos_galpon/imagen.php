@@ -66,12 +66,9 @@ imagefilledrectangle($img, 0, 0, $W - 1, $H - 1, $cCream);
 // ── Fuente TTF ────────────────────────────────────────────────────────────────
 $fontTTF = null;
 foreach ([
-    'C:\\Windows\\Fonts\\arial.ttf',
-    'C:\\Windows\\Fonts\\Arial.ttf',
-    '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf',
-    '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
-    '/usr/share/fonts/liberation/LiberationSans-Regular.ttf',
-    __DIR__ . '/../vendor/mpdf/mpdf/ttfonts/DejaVuSans.ttf',  // siempre disponible
+    __DIR__ . '/../vendor/mpdf/mpdf/tests/data/ttf/Poppins-Regular.ttf',
+    __DIR__ . '/../vendor/mpdf/mpdf/tests/data/ttf/NotoSans-Regular.ttf',
+    __DIR__ . '/../vendor/mpdf/mpdf/ttfonts/DejaVuSans.ttf',
 ] as $f) {
     if (file_exists($f)) { $fontTTF = $f; break; }
 }
