@@ -71,6 +71,22 @@ if ($action === 'gasto') {
     redirect(BASE_PATH . '/caja/?msg=ok');
 }
 
+// ── Saldo inicial ─────────────────────────────────────────────
+if ($action === 'saldo_inicial') {
+    $efectivo      = montoPost('efectivo');
+    $transferencia = montoPost('transferencia');
+    $dolares       = max(0.0, (float)str_replace([',', ' '], ['.', ''], $_POST['dolares'] ?? '0'));
+    $dolaresPrecio = montoPost('dolares_precio');
+    if ($dolaresPrecio <= 0) $dolaresPrecio = 1;
+    $db->prepare("
+        INSERT INTO caja_saldo_inicial (id, efectivo, transferencia, dolares, dolares_precio)
+        VALUES (1, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE efectivo=VALUES(efectivo), transferencia=VALUES(transferencia),
+                                dolares=VALUES(dolares), dolares_precio=VALUES(dolares_precio)
+    ")->execute([$efectivo, $transferencia, $dolares, $dolaresPrecio]);
+    redirect(BASE_PATH . '/caja/?msg=saldo_ok');
+}
+
 // ── Eliminar movimiento ───────────────────────────────────────
 if ($action === 'delete' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     $id = (int)($_GET['id'] ?? 0);

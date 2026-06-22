@@ -40,6 +40,7 @@ function navLink(string $href, string $icon, string $label, string $current): st
             <?php if (($_SESSION['rol'] ?? 'admin') === 'admin'): ?>
             <div class="nav-section">Administración</div>
             <?= navLink(BASE_PATH . '/caja/', '💵', 'Caja de Plata', 'caja') ?>
+            <?= navLink(BASE_PATH . '/stock/', '📦', 'Stock', 'stock') ?>
             <?php endif; ?>
             <div class="nav-section">Catálogo</div>
             <?= navLink(BASE_PATH . '/catalogo/', '📄', 'Generar Catálogo', 'catalogo') ?>
