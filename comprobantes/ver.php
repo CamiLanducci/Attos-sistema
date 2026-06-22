@@ -67,6 +67,18 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
 <?php if ($msg === 'created'): ?><div class="alert alert-success" data-autodismiss>Comprobante creado correctamente.</div><?php endif; ?>
 <?php if ($msg === 'updated'): ?><div class="alert alert-success" data-autodismiss>Comprobante actualizado correctamente.</div><?php endif; ?>
 <?php if ($msg === 'not_borrador'): ?><div class="alert alert-warning" data-autodismiss>Solo se pueden editar comprobantes en borrador.</div><?php endif; ?>
+<?php if ($msg === 'estado_ok'): ?><div class="alert alert-success" data-autodismiss>Estado actualizado correctamente.</div><?php endif; ?>
+<?php if ($msg === 'error_montos'): ?><div class="alert alert-warning">Para cobro mixto ingresá al menos un monto (efectivo o transferencia).</div><?php endif; ?>
+<?php if ($msg === 'error_db'): ?>
+<div class="alert alert-danger">
+    Error al guardar el cambio de estado.
+    <?php if (!empty($_GET['err'])): ?>
+        <br><small style="opacity:.7;"><?= e($_GET['err']) ?></small>
+    <?php else: ?>
+        Ejecutá <code>source db/update_v23.sql</code> en phpMyAdmin y volvé a intentarlo.
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <div class="d-flex gap-2" style="align-items:flex-start;">
 
