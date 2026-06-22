@@ -20,11 +20,11 @@ $steps = [
     'Insertar fila base saldo_inicial' =>
         "INSERT IGNORE INTO caja_saldo_inicial (id) VALUES (1)",
     'Agregar stock_cajas a productos' =>
-        "ALTER TABLE productos ADD COLUMN IF NOT EXISTS stock_cajas    INT           NOT NULL DEFAULT 0 AFTER descripcion",
+        "ALTER TABLE productos ADD COLUMN stock_cajas    INT           NOT NULL DEFAULT 0 AFTER descripcion",
     'Agregar stock_unidades a productos' =>
-        "ALTER TABLE productos ADD COLUMN IF NOT EXISTS stock_unidades INT           NOT NULL DEFAULT 0 AFTER stock_cajas",
+        "ALTER TABLE productos ADD COLUMN stock_unidades INT           NOT NULL DEFAULT 0 AFTER stock_cajas",
     'Agregar costo_compra a productos' =>
-        "ALTER TABLE productos ADD COLUMN IF NOT EXISTS costo_compra   DECIMAL(12,2) NULL               AFTER stock_unidades",
+        "ALTER TABLE productos ADD COLUMN costo_compra   DECIMAL(12,2) NULL               AFTER stock_unidades",
 ];
 
 echo "<!DOCTYPE html><html lang='es'><head><meta charset='UTF-8'><title>Migración v24</title>
