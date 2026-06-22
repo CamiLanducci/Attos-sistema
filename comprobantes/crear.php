@@ -327,9 +327,9 @@ function buildRowHTML(idx) {
             </div>
         </td>
         <td><input type="number" name="items[${idx}][cantidad_cajas]" class="form-control cant-cajas"
-                   min="0" value="1" oninput="calcularFila(${idx})" style="width:100%;"></td>
+                   min="0" value="1" oninput="calcularFila(${idx})" style="width:100%; padding:5px 6px;"></td>
         <td><input type="number" name="items[${idx}][cantidad_unidades]" class="form-control cant-unidades"
-                   min="0" value="0" oninput="calcularFila(${idx})" style="width:100%;"></td>
+                   min="0" value="0" oninput="calcularFila(${idx})" style="width:100%; padding:5px 6px;"></td>
         <td><span class="precio-unit price-display">—</span></td>
         <td><span class="precio-caja price-display">—</span></td>
         <td>
