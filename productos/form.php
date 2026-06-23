@@ -20,18 +20,19 @@ if ($edit) {
         $precios[(int)$row['lista_id']] = (float)$row['costo'];
     }
 
-    // Back-calcular el costo de compra desde el precio de venta almacenado.
-    // Para gaseosa+pack el costo almacenado ya es el costo de compra (sin margen).
+    // Back-calcular el costo de compra desde el precio almacenado.
+    // Para gaseosas (con y sin pack): costo almacenado = costo de compra (calcularPreciosProducto aplica el margen).
+    // Para cerveza y regular: costo almacenado = precio de venta (calcularPreciosProducto lo devuelve tal cual).
     $costoBase = 0.0;
     if (!empty($precios)) {
-        $esGaseosaPackEdit = $producto['precio_por_pack'] && esGaseosaOEnergizante($producto['categoria'] ?? '');
+        $esGaseosaEdit = esGaseosaOEnergizante($producto['categoria'] ?? '');
         $firstListId = (int)array_key_first($precios);
         $firstCosto  = $precios[$firstListId];
         $firstMargen = 0.0;
         foreach ($listas as $l) {
             if ((int)$l['id'] === $firstListId) { $firstMargen = (float)$l['margen']; break; }
         }
-        $costoBase = ($esGaseosaPackEdit || $firstMargen <= 0)
+        $costoBase = ($esGaseosaEdit || $firstMargen <= 0)
             ? $firstCosto
             : round($firstCosto / (1 + $firstMargen / 100), 4);
     }
@@ -76,15 +77,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ON DUPLICATE KEY UPDATE costo=VALUES(costo), costo_caja=VALUES(costo_caja)
         ");
         if ($costoBase > 0) {
-            // gaseosa+pack: el costo almacenado es el costo de compra del bulto;
-            // calcularPreciosProducto aplica el margen sobre él.
-            // Todos los demás: se almacena el precio de venta ya calculado por lista,
-            // porque calcularPreciosProducto devuelve el costo almacenado tal cual.
-            $esGaseosaPack = $precio_por_pack && esGaseosaOEnergizante($categoria);
+            // Gaseosa (con o sin pack): almacenar el costo de compra; calcularPreciosProducto aplica el margen.
+            // Cerveza y regular: almacenar el precio de venta; calcularPreciosProducto lo devuelve tal cual.
+            $esGaseosa = esGaseosaOEnergizante($categoria);
             foreach ($listas as $l) {
                 $lid    = (int)$l['id'];
                 $margen = (float)$l['margen'];
-                $costoLista = $esGaseosaPack
+                $costoLista = $esGaseosa
                     ? $costoBase
                     : $costoBase * (1 + $margen / 100);
                 $stmtLP->execute([$lid, $id, $costoLista, $costoLista * $unidades_por_caja]);
