@@ -7,18 +7,27 @@ if (($_SESSION['rol'] ?? 'admin') !== 'admin') redirect(BASE_PATH . '/index.php'
 $db = getDB();
 
 $productos = $db->query("
-    SELECT id, codigo, nombre, marca, unidades_por_caja, categoria,
-           stock_cajas, stock_unidades, costo_compra
-    FROM productos
-    WHERE activo = 1
-    ORDER BY marca ASC, nombre ASC
+    SELECT p.id, p.codigo, p.nombre, p.marca, p.unidades_por_caja, p.categoria,
+           p.stock_cajas, p.stock_unidades, p.costo_compra,
+           ROUND(
+               (SELECT lp.costo / (1 + l.margen / 100)
+                FROM lista_precios lp
+                JOIN listas l ON l.id = lp.lista_id
+                WHERE lp.producto_id = p.id
+                ORDER BY l.margen ASC
+                LIMIT 1),
+           2) AS costo_calc
+    FROM productos p
+    WHERE p.activo = 1
+    ORDER BY p.marca ASC, p.nombre ASC
 ")->fetchAll();
 
-// Totales
+// Totales — usa costo_compra guardado; si es NULL, usa el calculado desde lista_precios
 $totalValuacion = 0.0;
 foreach ($productos as $p) {
-    $uds = (int)$p['stock_cajas'] * max(1,(int)$p['unidades_por_caja']) + (int)$p['stock_unidades'];
-    $totalValuacion += $uds * (float)($p['costo_compra'] ?? 0);
+    $costo = $p['costo_compra'] ?? $p['costo_calc'];
+    $uds   = (int)$p['stock_cajas'] * max(1,(int)$p['unidades_por_caja']) + (int)$p['stock_unidades'];
+    $totalValuacion += $uds * (float)($costo ?? 0);
 }
 
 $msg       = $_GET['msg'] ?? '';
@@ -35,7 +44,7 @@ require_once __DIR__ . '/../config/layout.php';
         <div style="font-size:28px; font-weight:900; color:var(--bordo);"><?= precio($totalValuacion) ?></div>
     </div>
     <div style="font-size:12px; color:var(--text-muted); max-width:380px;">
-        Calculado como (cajas × uds/caja + unidades sueltas) × costo de compra. Los productos sin costo de compra no suman al total.
+        (cajas × uds/caja + uds sueltas) × costo de compra. Los costos en <em>itálica</em> son calculados desde la lista; guardá para fijarlos.
     </div>
 </div>
 
@@ -65,9 +74,11 @@ require_once __DIR__ . '/../config/layout.php';
             <tbody id="stock-tbody">
             <?php foreach ($productos as $p): ?>
             <?php
-                $udc = max(1,(int)$p['unidades_por_caja']);
-                $uds = (int)$p['stock_cajas'] * $udc + (int)$p['stock_unidades'];
-                $val = $uds * (float)($p['costo_compra'] ?? 0);
+                $udc        = max(1,(int)$p['unidades_por_caja']);
+                $uds        = (int)$p['stock_cajas'] * $udc + (int)$p['stock_unidades'];
+                $esGuardado = $p['costo_compra'] !== null;
+                $costo      = $esGuardado ? (float)$p['costo_compra'] : (float)($p['costo_calc'] ?? 0);
+                $val        = $uds * $costo;
                 $tieneStock = (int)$p['stock_cajas'] > 0 || (int)$p['stock_unidades'] > 0;
             ?>
             <tr style="<?= $tieneStock ? 'background:#f9fff9;' : '' ?>" data-nombre="<?= e($p['nombre'] . ' ' . $p['marca']) ?>">
@@ -90,9 +101,13 @@ require_once __DIR__ . '/../config/layout.php';
                 </td>
                 <td style="text-align:right;">
                     <input type="text" name="productos[<?= $p['id'] ?>][costo_compra]"
-                           class="form-control" style="width:110px; margin-left:auto; text-align:right; padding:4px 8px;"
-                           value="<?= $p['costo_compra'] !== null ? number_format((float)$p['costo_compra'], 2, ',', '.') : '' ?>"
+                           class="form-control" style="width:110px; margin-left:auto; text-align:right; padding:4px 8px;
+                                  <?= !$esGuardado && $costo > 0 ? 'color:#888; font-style:italic;' : '' ?>"
+                           value="<?= $costo > 0 ? number_format($costo, 2, ',', '.') : '' ?>"
                            placeholder="—">
+                    <?php if (!$esGuardado && $costo > 0): ?>
+                    <div style="font-size:10px; color:#aaa; text-align:right; margin-top:2px;">calculado</div>
+                    <?php endif; ?>
                 </td>
                 <td style="text-align:right; font-weight:700; color:<?= $val > 0 ? '#27ae60' : 'var(--text-muted)' ?>; font-size:13px;">
                     <?= $val > 0 ? precio($val) : '—' ?>
