@@ -62,8 +62,10 @@ $productos = $db->query("
     SELECT p.id,
            COALESCE(p.codigo,'') AS codigo,
            p.nombre,
-           (SELECT lp.costo      FROM lista_precios lp WHERE lp.producto_id = p.id ORDER BY lp.lista_id ASC LIMIT 1) AS costo_unitario,
-           (SELECT lp.costo_caja FROM lista_precios lp WHERE lp.producto_id = p.id ORDER BY lp.lista_id ASC LIMIT 1) AS costo_caja
+           p.unidades_por_caja,
+           COALESCE(p.costo_compra,
+               (SELECT lp.costo FROM lista_precios lp WHERE lp.producto_id = p.id ORDER BY lp.lista_id ASC LIMIT 1)
+           ) AS costo_unitario
     FROM productos p
     WHERE p.activo = 1
     ORDER BY p.nombre COLLATE utf8mb4_unicode_ci ASC
@@ -344,13 +346,15 @@ function agregarFila(p, cajas, unidades, costoUnitario) {
     var cajasVal = cajas    !== undefined && cajas    !== null ? parseInt(cajas)    : 1;
     var unidVal  = unidades !== undefined && unidades !== null ? parseInt(unidades) : 0;
     var costoVal = costoUnitario !== undefined && costoUnitario !== null ? parseFloat(costoUnitario) : 0;
-    var subVal   = (cajasVal + unidVal) * costoVal;
+    var upc      = parseInt(p.unidades_por_caja) || 1;
+    var subVal   = (cajasVal * upc + unidVal) * costoVal;
 
     // Fila visual — inputs SIN name
     var tr = document.createElement('tr');
     tr.id = 'item-row-' + idx;
     tr.dataset.idx    = idx;
     tr.dataset.prodId = p.id;
+    tr.dataset.upc    = upc;
     tr.innerHTML =
         '<td class="text-muted" style="font-size:12px;font-family:monospace;">' + escHtml(p.codigo || '—') + '</td>' +
         '<td style="font-size:13px;">' + escHtml(p.nombre) + '</td>' +
@@ -409,7 +413,8 @@ function sincronizar(idx) {
     var cajas = parseInt(cajasVis ? cajasVis.value : 0) || 0;
     var unid  = parseInt(unidVis  ? unidVis.value  : 0) || 0;
     var costo = parseFloat(costoVis ? costoVis.value : 0) || 0;
-    var sub   = (cajas + unid) * costo;
+    var upc   = parseInt(tr.dataset.upc) || 1;
+    var sub   = (cajas * upc + unid) * costo;
 
     if (hidCajas) hidCajas.value = cajas;
     if (hidUnid)  hidUnid.value  = unid;
