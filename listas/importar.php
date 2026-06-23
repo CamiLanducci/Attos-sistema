@@ -443,6 +443,9 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
         VALUES (?,?,?,?)
         ON DUPLICATE KEY UPDATE costo=VALUES(costo), costo_caja=VALUES(costo_caja), updated_at=NOW()
     ");
+    $stmtCostoUp = $db->prepare("
+        UPDATE productos SET costo_compra = ? WHERE id = ? AND costo_compra IS NULL
+    ");
 
     $resumenGlobal = [];
 
@@ -499,6 +502,15 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 // Para cervezas, costo_caja = costo (el precio importado ya es de la caja)
                 $costoParaCaja = $esCerv ? $precioUnidad : $precioCaja;
                 $stmtLpUp->execute([$listaId, $productoId, $precioUnidad, $costoParaCaja]);
+
+                // Guardar costo de compra: precio importado / (1 + margen) — sólo si no fue ingresado manualmente
+                if (!($existente && $existente['origen'] === 'manual')) {
+                    $margenLista = (float)$lista['margen'];
+                    $costoCompra = $margenLista > 0
+                        ? round($precioUnidad / (1 + $margenLista / 100), 4)
+                        : $precioUnidad;
+                    $stmtCostoUp->execute([$costoCompra, $productoId]);
+                }
 
                 if (($i + 1) % 30 === 0) flush();
                 if (($i + 1) % 100 === 0) {
