@@ -43,8 +43,11 @@ require_once __DIR__ . '/../config/layout.php';
 <input type="hidden" name="action" value="update_stock">
 
 <div class="card">
-    <div class="card-header" style="display:flex; align-items:center; gap:12px;">
+    <div class="card-header" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <span class="card-title">Productos</span>
+        <input type="text" id="stock-search" placeholder="Buscar por nombre…"
+               class="form-control" style="max-width:260px; margin-left:0;"
+               oninput="filtrarStock(this.value)">
         <button type="submit" class="btn btn-primary btn-sm" style="margin-left:auto;">Guardar stock</button>
     </div>
     <div class="table-wrap">
@@ -59,7 +62,7 @@ require_once __DIR__ . '/../config/layout.php';
                     <th style="text-align:right; width:130px;">Valor stock</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="stock-tbody">
             <?php foreach ($productos as $p): ?>
             <?php
                 $udc = max(1,(int)$p['unidades_por_caja']);
@@ -67,7 +70,7 @@ require_once __DIR__ . '/../config/layout.php';
                 $val = $uds * (float)($p['costo_compra'] ?? 0);
                 $tieneStock = (int)$p['stock_cajas'] > 0 || (int)$p['stock_unidades'] > 0;
             ?>
-            <tr style="<?= $tieneStock ? 'background:#f9fff9;' : '' ?>">
+            <tr style="<?= $tieneStock ? 'background:#f9fff9;' : '' ?>" data-nombre="<?= e($p['nombre'] . ' ' . $p['marca']) ?>">
                 <td>
                     <input type="hidden" name="productos[<?= $p['id'] ?>][id]" value="<?= $p['id'] ?>">
                     <div style="font-weight:600; font-size:13px;"><?= e($p['nombre']) ?></div>
@@ -106,4 +109,13 @@ require_once __DIR__ . '/../config/layout.php';
 </div>
 </form>
 
+<script>
+function filtrarStock(q) {
+    q = q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    document.querySelectorAll('#stock-tbody tr').forEach(function(tr) {
+        var texto = (tr.dataset.nombre || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        tr.style.display = texto.includes(q) ? '' : 'none';
+    });
+}
+</script>
 <?php require_once __DIR__ . '/../config/layout_end.php'; ?>
