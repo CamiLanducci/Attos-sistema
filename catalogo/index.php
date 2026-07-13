@@ -34,12 +34,13 @@ require_once __DIR__ . '/../config/layout.php';
 <div class="card" style="max-width:560px;">
     <div class="card-header"><span class="card-title">Generar catálogo PDF</span></div>
     <div class="card-body">
-        <form method="POST" action="<?= BASE_PATH ?>/catalogo/generar.php" target="_blank">
+        <form method="POST" action="<?= BASE_PATH ?>/catalogo/generar.php" target="_blank" id="form-catalogo">
 
             <div class="form-group">
                 <label class="form-label">Lista de precios</label>
-                <select name="lista_id" class="form-control" required>
+                <select name="lista_id" class="form-control" required onchange="onListaChange(this)">
                     <option value="">— Seleccionar —</option>
+                    <option value="todas">★ Todas las listas (ZIP con los 4 catálogos)</option>
                     <?php foreach ($listas as $l): ?>
                         <option value="<?= $l['id'] ?>"><?= e($l['codigo']) ?> — <?= $l['margen'] ?>%</option>
                     <?php endforeach; ?>
@@ -120,6 +121,14 @@ require_once __DIR__ . '/../config/layout.php';
 </div>
 
 <script>
+function onListaChange(sel) {
+    const form = document.getElementById('form-catalogo');
+    if (sel.value === 'todas') {
+        form.action = '<?= BASE_PATH ?>/catalogo/generar_todas.php';
+    } else {
+        form.action = '<?= BASE_PATH ?>/catalogo/generar.php';
+    }
+}
 function toggleFiltro() {
     const filtrado = document.querySelector('input[name="tipo"][value="filtrado"]').checked;
     document.getElementById('row-precio-min').style.display = filtrado ? '' : 'none';

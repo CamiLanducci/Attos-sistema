@@ -24,22 +24,14 @@ require_once __DIR__ . '/_pdf_helper.php';
 ini_set('pcre.backtrack_limit', 50000000);
 ini_set('memory_limit', '-1');
 
-// ── Parameters ─────────────────────────────────────────────────────────────────
-$db       = getDB();
-$lista_id = (int)($_POST['lista_id'] ?? $_GET['lista_id'] ?? 0);
-if (!$lista_id) redirect(BASE_PATH . '/catalogo/');
+$db = getDB();
 
-$stmt = $db->prepare("SELECT * FROM listas WHERE id=?");
-$stmt->execute([$lista_id]);
-$lista = $stmt->fetch();
-if (!$lista) redirect(BASE_PATH . '/catalogo/');
-
-$tipo         = in_array($_POST['tipo'] ?? '', ['completo','filtrado']) ? $_POST['tipo'] : 'completo';
-$precio_min   = $tipo === 'filtrado' ? max(0, (float)($_POST['precio_min'] ?? 20000)) : 0;
 $modo         = in_array($_POST['modo'] ?? '', ['caja','unidad','ambos']) ? $_POST['modo'] : 'ambos';
 $marcasFiltro = array_values(array_filter(array_map('trim', $_POST['marcas'] ?? [])));
 
-// ── Detect mostrar_precio column ───────────────────────────────────────────────
+$listas = $db->query("SELECT * FROM listas ORDER BY margen ASC")->fetchAll();
+if (empty($listas)) redirect(BASE_PATH . '/catalogo/');
+
 try {
     $db->query("SELECT mostrar_precio FROM productos LIMIT 0");
     $tieneMostrarPrecio = true;
@@ -48,15 +40,29 @@ try {
 }
 
 $fontConfig = setupFontsConfig();
-$pdf = buildCatalogoPDF($db, $lista, $tipo, $precio_min, $modo, $marcasFiltro, $tieneMostrarPrecio, $fontConfig);
 
 $meses  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 $mes    = $meses[intval(date('n')) - 1];
 $sufijos = [10 => 'Mayorista', 15 => 'Flia', 20 => 'ClientesFieles', 25 => ''];
-$sufijo  = $sufijos[(int)$lista['margen']] ?? '';
-$nombre  = 'Attos-Lista-' . $mes . ($sufijo !== '' ? '-' . $sufijo : '') . '.pdf';
 
-header('Content-Type: application/pdf');
-header('Content-Disposition: inline; filename="' . $nombre . '"');
-header('Content-Length: ' . strlen($pdf));
-echo $pdf;
+$tmpFile = tempnam(sys_get_temp_dir(), 'attos_zip_');
+$zip = new ZipArchive();
+if ($zip->open($tmpFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+    die('No se pudo crear el archivo ZIP.');
+}
+
+foreach ($listas as $lista) {
+    $pdf    = buildCatalogoPDF($db, $lista, 'completo', 0, $modo, $marcasFiltro, $tieneMostrarPrecio, $fontConfig);
+    $sufijo = $sufijos[(int)$lista['margen']] ?? $lista['codigo'];
+    $nombre = 'Attos-Lista-' . $mes . ($sufijo !== '' ? '-' . $sufijo : '') . '.pdf';
+    $zip->addFromString($nombre, $pdf);
+}
+
+$zip->close();
+
+$zipNombre = 'Attos-Listas-' . $mes . '-' . date('Y') . '.zip';
+header('Content-Type: application/zip');
+header('Content-Disposition: attachment; filename="' . $zipNombre . '"');
+header('Content-Length: ' . filesize($tmpFile));
+readfile($tmpFile);
+unlink($tmpFile);
