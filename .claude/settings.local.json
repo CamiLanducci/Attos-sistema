@@ -25,7 +25,8 @@
       "PowerShell(Copy-Item *)",
       "Bash(\"c:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root attos)",
       "Bash(git reset *)",
-      "WebFetch(domain:app-afabab34-cba3-4ed9-987a-182af88c367f.cleverapps.io)"
+      "WebFetch(domain:app-afabab34-cba3-4ed9-987a-182af88c367f.cleverapps.io)",
+      "Bash(git rm *)"
     ]
   }
 }
