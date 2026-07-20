@@ -247,8 +247,8 @@ if ($action === 'estado') {
 
     $estadoAnterior = $row['estado'];
 
-    // Si no hay cambio real, redirigir sin hacer nada
-    if ($estadoAnterior === $estado) {
+    // Si no hay cambio de estado Y no es cobrado (donde puede cambiar el medio de pago), no hacer nada
+    if ($estadoAnterior === $estado && $estado !== 'cobrado') {
         redirect(BASE_PATH . '/comprobantes/ver.php?id=' . $id);
     }
 
@@ -287,18 +287,25 @@ if ($action === 'estado') {
             $db->prepare("UPDATE comprobantes SET estado=? WHERE id=?")->execute([$estado, $id]);
         }
 
-        if ($estado === 'cobrado' && $estadoAnterior !== 'cobrado') {
+        if ($estado === 'cobrado') {
             $total = (float)$row['total'];
             $desc  = 'Cobro comp. #' . $row['numero'] . ' — ' . $row['cliente'];
 
+            // movimientos_cuenta: solo insertar si no existe ya una entrada para este comprobante
             if ($total > 0 && $hasMovCtaTbl) {
-                $db->prepare("
-                    INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, comprobante_id)
-                    VALUES (?, 'patrimonio', 'cargo', ?, ?, ?)
-                ")->execute([date('Y-m-d'), $total, $desc, $id]);
+                $chkMov = $db->prepare("SELECT COUNT(*) FROM movimientos_cuenta WHERE comprobante_id = ?");
+                $chkMov->execute([$id]);
+                if ((int)$chkMov->fetchColumn() === 0) {
+                    $db->prepare("
+                        INSERT INTO movimientos_cuenta (fecha, cuenta, tipo, monto, descripcion, comprobante_id)
+                        VALUES (?, 'patrimonio', 'cargo', ?, ?, ?)
+                    ")->execute([date('Y-m-d'), $total, $desc, $id]);
+                }
             }
 
+            // caja_movimientos: siempre re-sincronizar con el medio de pago actual
             if ($hasCajaTbl) {
+                $db->prepare("DELETE FROM caja_movimientos WHERE comprobante_id = ?")->execute([$id]);
                 if ($medio_pago === 'mixto') {
                     if ($montoEfectivo > 0) {
                         $db->prepare("
