@@ -69,14 +69,24 @@ $cls = $badgeMap[$comp['estado']] ?? 'badge-gray';
 <?php if ($msg === 'not_borrador'): ?><div class="alert alert-warning" data-autodismiss>Solo se pueden editar comprobantes en borrador.</div><?php endif; ?>
 <?php if ($msg === 'estado_ok'): ?><div class="alert alert-success" data-autodismiss>Estado actualizado correctamente.</div><?php endif; ?>
 <?php if ($msg === 'error_montos'): ?><div class="alert alert-warning">Para cobro mixto ingresá al menos un monto (efectivo o transferencia).</div><?php endif; ?>
+<?php if ($msg === 'error_schema'): ?>
+<div class="alert alert-danger">
+    La base de datos necesita una actualización para soportar cobro mixto (efectivo + transferencia).<br>
+    Ejecutá la migración accediendo a:
+    <a href="<?= BASE_PATH ?>/db/migrate_v23.php?token=attos_migrate_v23" target="_blank" style="font-weight:700;">
+        db/migrate_v23.php
+    </a>
+    — o bien abrí phpMyAdmin → base <strong>attos</strong> → SQL y pegá el contenido de <code>db/update_v23.sql</code>.
+</div>
+<?php endif; ?>
 <?php if ($msg === 'error_db'): ?>
 <div class="alert alert-danger">
     Error al guardar el cambio de estado.
     <?php if (!empty($_GET['err'])): ?>
         <br><small style="opacity:.8;font-family:monospace;"><?= e($_GET['err']) ?></small>
-    <?php else: ?>
-        Abrí phpMyAdmin → base <strong>attos</strong> → pestaña <strong>SQL</strong>, pegá el contenido de <code>db/update_v23.sql</code> y ejecutá.
     <?php endif; ?>
+    <br>Si el problema persiste, ejecutá la migración:
+    <a href="<?= BASE_PATH ?>/db/migrate_v23.php?token=attos_migrate_v23" target="_blank">db/migrate_v23.php</a>
 </div>
 <?php endif; ?>
 

@@ -268,6 +268,11 @@ if ($action === 'estado') {
                                       WHERE TABLE_SCHEMA = DATABASE()
                                         AND TABLE_NAME   = 'movimientos_cuenta'")->fetchColumn() > 0;
 
+    // Si seleccionan mixto pero la migración v23 no se corrió aún, el ENUM no soporta 'mixto'
+    if ($estado === 'cobrado' && $medio_pago === 'mixto' && !$hasMontoCols) {
+        redirect(BASE_PATH . '/comprobantes/ver.php?id=' . $id . '&msg=error_schema');
+    }
+
     $db->beginTransaction();
     try {
         if ($estado === 'cobrado') {
