@@ -1,6 +1,9 @@
 ﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
+
+if (($_SESSION['rol'] ?? 'admin') !== 'admin') redirect(BASE_PATH . '/index.php');
+
 $pageTitle     = 'Registrar pago a galpón / Alfre';
 $topbarActions = '<a href="' . BASE_PATH . '/cuentas/" class="btn btn-secondary">← Volver</a>';
 

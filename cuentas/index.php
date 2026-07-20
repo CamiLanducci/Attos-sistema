@@ -1,6 +1,9 @@
 ﻿<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
+
+if (($_SESSION['rol'] ?? 'admin') !== 'admin') redirect(BASE_PATH . '/index.php');
+
 $pageTitle     = 'Cuentas';
 $topbarActions = '
     <a href="' . BASE_PATH . '/cuentas/pago.php"            class="btn btn-primary">+ Registrar pago</a>
