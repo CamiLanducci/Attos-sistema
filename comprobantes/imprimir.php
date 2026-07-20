@@ -39,13 +39,17 @@ foreach ($items as $it) {
 $estadoLabel = ['borrador' => 'Borrador', 'emitido' => 'Emitido', 'cobrado' => 'Cobrado'];
 $estadoColor = ['borrador' => '#b7770d', 'emitido' => '#631636', 'cobrado' => '#2d7a4f'];
 $est = $comp['estado'];
+
+$nroPedido   = (int)($comp['numero_cliente'] ?? $comp['numero']);
+$nombreLimpio = preg_replace('/[\/\\\\:\*\?"<>\|]/', '', $comp['cliente_nombre']);
+$pdfNombre   = $nombreLimpio . '-Pedido nº' . $nroPedido . '.pdf';
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Comprobante N.° <?= str_pad($comp['numero_cliente'] ?? $comp['numero'], 4, '0', STR_PAD_LEFT) ?> — Attos</title>
+    <title><?= e($comp['cliente_nombre']) ?> — Pedido N.° <?= $nroPedido ?> — Attos</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -366,7 +370,7 @@ $est = $comp['estado'];
     <a href="<?= BASE_PATH ?>/comprobantes/ver.php?id=<?= $id ?>" style="font-size:13px; color:#631636;">← Volver</a>
 </div>
 <script>
-var _pdfNombre = 'Comprobante-<?= str_pad($comp['numero_cliente'] ?? $comp['numero'], 4, '0', STR_PAD_LEFT) ?>-<?= $comp['fecha'] ?>.pdf';
+var _pdfNombre = <?= json_encode($pdfNombre) ?>;
 
 function guardarPDF() {
     if (typeof html2pdf === 'undefined') {
