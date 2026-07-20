@@ -107,6 +107,44 @@ $labelsClientes = array_map(fn($c) => $c['nombre'], $topClientes);
 $datosClientes  = array_map(fn($c) => (float)$c['facturado'], $topClientes);
 
 /* ============================================================
+   GRÁFICO 5 — TOP 10 PRODUCTOS POR CANTIDAD VENDIDA
+   ============================================================ */
+$stmt = $db->prepare("
+    SELECT ci.nombre_producto AS nombre,
+           SUM(ci.cantidad_unidades) AS unidades
+    FROM comprobante_items ci
+    JOIN comprobantes c ON c.id = ci.comprobante_id
+    WHERE c.fecha BETWEEN ? AND ?
+    GROUP BY ci.producto_id, ci.nombre_producto
+    ORDER BY unidades DESC
+    LIMIT 10
+");
+$stmt->execute([$desde, $hasta]);
+$topProductosCantidad = $stmt->fetchAll();
+
+$labelsProductosCantidad = array_map(fn($p) => $p['nombre'], $topProductosCantidad);
+$datosProductosCantidad  = array_map(fn($p) => (int)$p['unidades'], $topProductosCantidad);
+
+/* ============================================================
+   GRÁFICO 6 — TOP 10 CLIENTES POR CANTIDAD DE PEDIDOS
+   ============================================================ */
+$stmt = $db->prepare("
+    SELECT cl.nombre,
+           COUNT(c.id) AS pedidos
+    FROM comprobantes c
+    JOIN clientes cl ON cl.id = c.cliente_id
+    WHERE c.fecha BETWEEN ? AND ?
+    GROUP BY cl.id, cl.nombre
+    ORDER BY pedidos DESC
+    LIMIT 10
+");
+$stmt->execute([$desde, $hasta]);
+$topClientesCantidad = $stmt->fetchAll();
+
+$labelsClientesCantidad = array_map(fn($c) => $c['nombre'], $topClientesCantidad);
+$datosClientesCantidad  = array_map(fn($c) => (int)$c['pedidos'], $topClientesCantidad);
+
+/* ============================================================
    GRÁFICO 4 — VENTAS POR LISTA / MARGEN (dona)
    ============================================================ */
 $stmt = $db->prepare("
@@ -204,6 +242,25 @@ require_once __DIR__ . '/config/layout.php';
 
 </div>
 
+<!-- Fila 3 de gráficos -->
+<div class="d-flex gap-2" style="align-items:flex-start; flex-wrap:wrap; margin-top:16px;">
+
+    <div class="card" style="flex:1; min-width:360px;">
+        <div class="card-header"><span class="card-title">Top productos (unidades vendidas)</span></div>
+        <div class="card-body" style="position:relative; height:380px;">
+            <canvas id="chartProductosCantidad"></canvas>
+        </div>
+    </div>
+
+    <div class="card" style="flex:1; min-width:360px;">
+        <div class="card-header"><span class="card-title">Top clientes (cantidad de pedidos)</span></div>
+        <div class="card-body" style="position:relative; height:380px;">
+            <canvas id="chartClientesCantidad"></canvas>
+        </div>
+    </div>
+
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 (function () {
@@ -214,8 +271,12 @@ require_once __DIR__ . '/config/layout.php';
     const datosProductos = <?= json_encode($datosProductos, JSON_UNESCAPED_UNICODE) ?>;
     const labelsClientes = <?= json_encode($labelsClientes, JSON_UNESCAPED_UNICODE) ?>;
     const datosClientes  = <?= json_encode($datosClientes,  JSON_UNESCAPED_UNICODE) ?>;
-    const labelsListas   = <?= json_encode($labelsListas,   JSON_UNESCAPED_UNICODE) ?>;
-    const datosListas    = <?= json_encode($datosListas,    JSON_UNESCAPED_UNICODE) ?>;
+    const labelsListas              = <?= json_encode($labelsListas,              JSON_UNESCAPED_UNICODE) ?>;
+    const datosListas               = <?= json_encode($datosListas,               JSON_UNESCAPED_UNICODE) ?>;
+    const labelsProductosCantidad   = <?= json_encode($labelsProductosCantidad,   JSON_UNESCAPED_UNICODE) ?>;
+    const datosProductosCantidad    = <?= json_encode($datosProductosCantidad,    JSON_UNESCAPED_UNICODE) ?>;
+    const labelsClientesCantidad    = <?= json_encode($labelsClientesCantidad,    JSON_UNESCAPED_UNICODE) ?>;
+    const datosClientesCantidad     = <?= json_encode($datosClientesCantidad,     JSON_UNESCAPED_UNICODE) ?>;
 
     const BORDO      = '#631636';
     const BORDO_SOFT = 'rgba(99, 22, 54, 0.15)';
@@ -305,6 +366,58 @@ require_once __DIR__ . '/config/layout.php';
             },
             scales: {
                 x: { ticks: { callback: (v) => fmtPeso(v) } }
+            }
+        }
+    });
+
+    // 5) Top productos por cantidad (barras horizontales)
+    new Chart(document.getElementById('chartProductosCantidad'), {
+        type: 'bar',
+        data: {
+            labels: labelsProductosCantidad,
+            datasets: [{
+                label: 'Unidades',
+                data: datosProductosCantidad,
+                backgroundColor: BORDO,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => ctx.parsed.x + ' u.' } }
+            },
+            scales: {
+                x: { ticks: { stepSize: 1 } }
+            }
+        }
+    });
+
+    // 6) Top clientes por cantidad de pedidos (barras horizontales)
+    new Chart(document.getElementById('chartClientesCantidad'), {
+        type: 'bar',
+        data: {
+            labels: labelsClientesCantidad,
+            datasets: [{
+                label: 'Pedidos',
+                data: datosClientesCantidad,
+                backgroundColor: '#8b2a55',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => ctx.parsed.x + ' pedidos' } }
+            },
+            scales: {
+                x: { ticks: { stepSize: 1 } }
             }
         }
     });
