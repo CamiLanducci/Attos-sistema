@@ -57,36 +57,38 @@ if ($editMode) {
 
 $proveedores = $db->query("SELECT id, nombre FROM proveedores WHERE activo=1 ORDER BY nombre")->fetchAll();
 
-// Productos con costo de referencia (primer costo disponible en lista_precios)
+// Productos con costo de referencia por unidad.
+// lista_precios.costo_caja siempre almacena el precio de la caja (para todos los tipos de producto),
+// así que dividir por upc da el precio unitario correcto sin necesidad de detectar el tipo.
+// Si el producto tiene costo_compra seteado se usa ese valor directo (ya es por unidad).
 $productos = $db->query("
     SELECT p.id,
            COALESCE(p.codigo,'') AS codigo,
            p.nombre,
-           COALESCE(p.categoria,'') AS categoria,
-           COALESCE(p.marca,'')     AS marca,
-           p.precio_por_pack,
            p.unidades_por_caja,
-           COALESCE(p.costo_compra,
-               (SELECT lp.costo FROM lista_precios lp WHERE lp.producto_id = p.id ORDER BY lp.lista_id ASC LIMIT 1)
-           ) AS costo_unitario
+           p.costo_compra,
+           (SELECT lp.costo_caja FROM lista_precios lp WHERE lp.producto_id = p.id ORDER BY lp.lista_id ASC LIMIT 1) AS costo_caja_lista
     FROM productos p
     WHERE p.activo = 1
     ORDER BY p.nombre COLLATE utf8mb4_unicode_ci ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Para cervezas y gaseosas-con-pack, lp.costo representa el precio de la CAJA.
-// Dividimos por upc para obtener siempre un costo por unidad coherente con el cálculo del JS.
 $productos = array_map(function($p) {
     $upc = max(1, (int)$p['unidades_por_caja']);
-    if ($p['costo_unitario'] !== null) {
-        $esCerv       = esCerveza($p['categoria'], $p['marca']);
-        $esGasConPack = esGaseosaOEnergizante($p['categoria']) && (int)($p['precio_por_pack'] ?? 0) > 0;
-        if ($esCerv || $esGasConPack) {
-            $p['costo_unitario'] = round((float)$p['costo_unitario'] / $upc, 4);
-        }
+    if ($p['costo_compra'] !== null) {
+        $costoUnit = (float)$p['costo_compra'];
+    } elseif ($p['costo_caja_lista'] !== null && (float)$p['costo_caja_lista'] > 0) {
+        $costoUnit = (float)$p['costo_caja_lista'] / $upc;
+    } else {
+        $costoUnit = 0;
     }
-    unset($p['categoria'], $p['marca'], $p['precio_por_pack']);
-    return $p;
+    return [
+        'id'               => (int)$p['id'],
+        'codigo'           => $p['codigo'],
+        'nombre'           => $p['nombre'],
+        'unidades_por_caja' => $upc,
+        'costo_unitario'   => $costoUnit > 0 ? round($costoUnit, 4) : null,
+    ];
 }, $productos);
 
 // Comprobantes emitidos para importar
