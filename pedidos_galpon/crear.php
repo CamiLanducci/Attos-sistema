@@ -62,6 +62,9 @@ $productos = $db->query("
     SELECT p.id,
            COALESCE(p.codigo,'') AS codigo,
            p.nombre,
+           COALESCE(p.categoria,'') AS categoria,
+           COALESCE(p.marca,'')     AS marca,
+           p.precio_por_pack,
            p.unidades_por_caja,
            COALESCE(p.costo_compra,
                (SELECT lp.costo FROM lista_precios lp WHERE lp.producto_id = p.id ORDER BY lp.lista_id ASC LIMIT 1)
@@ -70,6 +73,21 @@ $productos = $db->query("
     WHERE p.activo = 1
     ORDER BY p.nombre COLLATE utf8mb4_unicode_ci ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
+
+// Para cervezas y gaseosas-con-pack, lp.costo representa el precio de la CAJA.
+// Dividimos por upc para obtener siempre un costo por unidad coherente con el cálculo del JS.
+$productos = array_map(function($p) {
+    $upc = max(1, (int)$p['unidades_por_caja']);
+    if ($p['costo_unitario'] !== null) {
+        $esCerv       = esCerveza($p['categoria'], $p['marca']);
+        $esGasConPack = esGaseosaOEnergizante($p['categoria']) && (int)($p['precio_por_pack'] ?? 0) > 0;
+        if ($esCerv || $esGasConPack) {
+            $p['costo_unitario'] = round((float)$p['costo_unitario'] / $upc, 4);
+        }
+    }
+    unset($p['categoria'], $p['marca'], $p['precio_por_pack']);
+    return $p;
+}, $productos);
 
 // Comprobantes emitidos para importar
 $comprobantesEmitidos = $db->query("
