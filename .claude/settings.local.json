@@ -27,7 +27,10 @@
       "Bash(git reset *)",
       "WebFetch(domain:app-afabab34-cba3-4ed9-987a-182af88c367f.cleverapps.io)",
       "Bash(git rm *)",
-      "Skill(claude-in-chrome)"
+      "Skill(claude-in-chrome)",
+      "Bash(php -l listas/importar.php)",
+      "Bash(php -l listas/exportar_cambios_pdf.php)",
+      "PowerShell($php = \"C:\\\\xampp\\\\php\\\\php.exe\"; if \\(Test-Path $php\\) { & $php -l \"listas\\\\importar.php\"; & $php -l \"listas\\\\exportar_cambios_pdf.php\" } else { \"php.exe not found at $php\" })"
     ]
   }
 }

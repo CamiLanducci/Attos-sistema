@@ -253,12 +253,20 @@ if (!$isPost && $step === 'preview') {
                 <span class="badge badge-success">Sin cambios</span>
                 <?php endif; ?>
             </div>
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; font-weight:600; white-space:nowrap;">
-                <input type="checkbox" name="listas_aceptadas[]" value="<?= $listaId ?>"
-                       id="chk_<?= $listaId ?>"
-                       <?= $hayModifs ? 'checked' : '' ?>>
-                Aplicar esta lista
-            </label>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <?php if ($hayModifs): ?>
+                <a href="<?= BASE_PATH ?>/listas/exportar_cambios_pdf.php?lista_id=<?= $listaId ?>"
+                   target="_blank" class="btn btn-secondary btn-sm" style="white-space:nowrap;">
+                    📄 PDF de cambios
+                </a>
+                <?php endif; ?>
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; font-weight:600; white-space:nowrap;">
+                    <input type="checkbox" name="listas_aceptadas[]" value="<?= $listaId ?>"
+                           id="chk_<?= $listaId ?>"
+                           <?= $hayModifs ? 'checked' : '' ?>>
+                    Aplicar esta lista
+                </label>
+            </div>
         </div>
 
         <div class="card-body">
@@ -287,7 +295,7 @@ if (!$isPost && $step === 'preview') {
 
             <?php if (!empty($changes)): ?>
             <!-- Tabla de variaciones de precio -->
-            <div style="overflow-x:auto; margin-bottom:16px;">
+            <div style="overflow-x:auto; margin-bottom:8px;">
                 <table style="width:100%; font-size:12px; border-collapse:collapse;">
                     <thead>
                         <tr style="background:var(--bg-soft); border-bottom:2px solid var(--border);">
@@ -297,6 +305,7 @@ if (!$isPost && $step === 'preview') {
                             <th style="padding:6px 8px; text-align:right; font-weight:600; white-space:nowrap;">Precio anterior</th>
                             <th style="padding:6px 8px; text-align:right; font-weight:600; white-space:nowrap;">Precio nuevo</th>
                             <th style="padding:6px 8px; text-align:right; font-weight:600; white-space:nowrap;">Variación</th>
+                            <th style="padding:6px 8px; text-align:center; font-weight:600; white-space:nowrap;">Se aplica</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -313,11 +322,22 @@ if (!$isPost && $step === 'preview') {
                         <td style="padding:5px 8px; text-align:right; color:var(--text-soft); white-space:nowrap;"><?= precio($c['viejo']) ?></td>
                         <td style="padding:5px 8px; text-align:right; font-weight:600; white-space:nowrap;"><?= precio($c['nuevo']) ?></td>
                         <td style="padding:5px 8px; text-align:right; font-weight:700; color:<?= $clrPct ?>; white-space:nowrap;"><?= $pctFmt ?></td>
+                        <td style="padding:5px 8px; text-align:center; white-space:nowrap;">
+                            <?php if ($sube): ?>
+                            <span class="badge badge-success" style="font-size:10px;">sí</span>
+                            <?php else: ?>
+                            <span class="badge badge-gray" style="font-size:10px;" title="El sistema avisa la baja pero no reduce el precio automáticamente. Se mantiene el precio anterior.">no (baja)</span>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
+            <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">
+                Las bajas de precio se informan pero no se aplican automáticamente — se mantiene el precio anterior
+                de la lista. Si una baja es correcta, actualizala manualmente en el producto.
+            </p>
             <?php endif; ?>
 
             <?php if (!empty($newProds)): ?>
@@ -463,10 +483,18 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
         echo count($productos) . " productos. Guardando...\n\n";
         flush();
 
-        $cntNuevos       = 0;
-        $cntActualizados = 0;
-        $cntSkip         = 0;
-        $cntPreciosModif = count($data['changes']) + count($data['new_prods']);
+        $cntNuevos        = 0;
+        $cntActualizados  = 0;
+        $cntSkip          = 0;
+        $cntBajasOmitidas = 0;
+        $cntPreciosModif  = count($data['changes']) + count($data['new_prods']);
+
+        // Códigos cuyo precio bajó respecto al actual: se avisa pero NO se aplica —
+        // se conserva el precio vigente en lista_precios.
+        $bajaCodigos = [];
+        foreach ($data['changes'] as $c) {
+            if ($c['pct'] < 0) $bajaCodigos[$c['codigo']] = true;
+        }
 
         $db->beginTransaction();
         try {
@@ -499,17 +527,22 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                     $cntNuevos++;
                 }
 
-                // Para cervezas, costo_caja = costo (el precio importado ya es de la caja)
-                $costoParaCaja = $esCerv ? $precioUnidad : $precioCaja;
-                $stmtLpUp->execute([$listaId, $productoId, $precioUnidad, $costoParaCaja]);
+                if (isset($bajaCodigos[$codigo])) {
+                    // Baja de precio detectada: se avisó en la revisión pero no se aplica.
+                    $cntBajasOmitidas++;
+                } else {
+                    // Para cervezas, costo_caja = costo (el precio importado ya es de la caja)
+                    $costoParaCaja = $esCerv ? $precioUnidad : $precioCaja;
+                    $stmtLpUp->execute([$listaId, $productoId, $precioUnidad, $costoParaCaja]);
 
-                // Guardar costo de compra: precio importado / (1 + margen) — sólo si no fue ingresado manualmente
-                if (!($existente && $existente['origen'] === 'manual')) {
-                    $margenLista = (float)$lista['margen'];
-                    $costoCompra = $margenLista > 0
-                        ? round($precioUnidad / (1 + $margenLista / 100), 4)
-                        : $precioUnidad;
-                    $stmtCostoUp->execute([$costoCompra, $productoId]);
+                    // Guardar costo de compra: precio importado / (1 + margen) — sólo si no fue ingresado manualmente
+                    if (!($existente && $existente['origen'] === 'manual')) {
+                        $margenLista = (float)$lista['margen'];
+                        $costoCompra = $margenLista > 0
+                            ? round($precioUnidad / (1 + $margenLista / 100), 4)
+                            : $precioUnidad;
+                        $stmtCostoUp->execute([$costoCompra, $productoId]);
+                    }
                 }
 
                 if (($i + 1) % 30 === 0) flush();
@@ -525,7 +558,7 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
 
             $db->commit();
 
-            echo "\n✓ {$listaCod} completada: {$cntNuevos} nuevos, {$cntActualizados} actualizados, {$cntSkip} manuales (sin tocar).\n";
+            echo "\n✓ {$listaCod} completada: {$cntNuevos} nuevos, {$cntActualizados} actualizados, {$cntSkip} manuales (sin tocar), {$cntBajasOmitidas} bajas no aplicadas.\n";
 
             $resumenGlobal[] = [
                 'lista'          => $listaCod,
@@ -534,6 +567,7 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 'nuevos'         => $cntNuevos,
                 'actualizados'   => $cntActualizados,
                 'skip'           => $cntSkip,
+                'bajas_omitidas' => $cntBajasOmitidas,
                 'total'          => count($productos),
                 'precios_modif'  => $cntPreciosModif,
                 'pct_modif'      => $data['total'] > 0
@@ -568,6 +602,7 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                         <th style="padding:5px 8px; text-align:center;">Nuevos</th>
                         <th style="padding:5px 8px; text-align:center;">Actualizados</th>
                         <th style="padding:5px 8px; text-align:center;">Precios modif.</th>
+                        <th style="padding:5px 8px; text-align:center;">Bajas no aplicadas</th>
                         <th style="padding:5px 8px; text-align:left;">Estado</th>
                     </tr>
                 </thead>
@@ -589,6 +624,11 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                             <span class="text-muted" style="font-size:11px;">
                                 (<?= number_format($r['pct_modif'], 1) ?>%)
                             </span>
+                        <?php else: ?>—<?php endif; ?>
+                    </td>
+                    <td style="padding:5px 8px; text-align:center;">
+                        <?php if (($r['bajas_omitidas'] ?? 0) > 0): ?>
+                            <span style="color:#27ae60; font-weight:600;"><?= $r['bajas_omitidas'] ?></span>
                         <?php else: ?>—<?php endif; ?>
                     </td>
                     <td style="padding:5px 8px;">
