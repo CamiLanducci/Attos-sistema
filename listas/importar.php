@@ -584,6 +584,14 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
 
             $db->commit();
 
+            // Guardar snapshot de esta importación para poder generar los PDF
+            // de cambios desde el dashboard más adelante (fuera de la sesión).
+            $db->prepare("
+                INSERT INTO lista_import_log (lista_id, fecha, changes_json, new_prods_json)
+                VALUES (?, NOW(), ?, ?)
+                ON DUPLICATE KEY UPDATE fecha=VALUES(fecha), changes_json=VALUES(changes_json), new_prods_json=VALUES(new_prods_json)
+            ")->execute([$listaId, json_encode($data['changes']), json_encode($data['new_prods'])]);
+
             echo "\n✓ {$listaCod} completada: {$cntNuevos} nuevos, {$cntActualizados} actualizados, {$cntSkip} manuales (sin tocar), {$cntBajasOmitidas} bajas no aplicadas.\n";
 
             $resumenGlobal[] = [

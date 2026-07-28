@@ -4,7 +4,12 @@ require_once __DIR__ . '/../config/auth.php';
 $pageTitle = 'Listas / Márgenes';
 
 $db     = getDB();
-$listas = $db->query("SELECT * FROM listas ORDER BY margen DESC")->fetchAll();
+$listas = $db->query("
+    SELECT l.*, log.fecha AS import_log_fecha
+    FROM listas l
+    LEFT JOIN lista_import_log log ON log.lista_id = l.id
+    ORDER BY l.margen DESC
+")->fetchAll();
 
 $msg = $_GET['msg'] ?? '';
 $listasConUrl = array_filter($listas, fn($l) => !empty($l['url_actualizacion']));
@@ -15,6 +20,7 @@ require_once __DIR__ . '/../config/layout.php';
 <?php if ($msg === 'updated'):        ?><div class="alert alert-success" data-autodismiss>Lista actualizada.</div><?php endif; ?>
 <?php if ($msg === 'duplicate'):      ?><div class="alert alert-danger"  data-autodismiss>Ya existe una lista con ese código.</div><?php endif; ?>
 <?php if ($msg === 'config_missing'): ?><div class="alert alert-warning" data-autodismiss>Configurá las URLs de las listas antes de importar.</div><?php endif; ?>
+<?php if ($msg === 'sin_cambios_pdf'): ?><div class="alert alert-warning" data-autodismiss>Esa lista no tiene datos para ese PDF (no hubo cambios de ese tipo en la última importación).</div><?php endif; ?>
 
 <!-- Botón de importación global -->
 <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
@@ -47,6 +53,19 @@ require_once __DIR__ . '/../config/layout.php';
         </div>
         <?php else: ?>
         <div style="font-size:12px; color:var(--text-soft); margin-bottom:12px;">Sin actualizaciones aún</div>
+        <?php endif; ?>
+
+        <?php if ($l['import_log_fecha']): ?>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;">
+            <a href="<?= BASE_PATH ?>/listas/exportar_cambios_pdf.php?lista_id=<?= $l['id'] ?>&origen=historial&modo=aumentos"
+               target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;">
+                📈 PDF aumentos
+            </a>
+            <a href="<?= BASE_PATH ?>/listas/exportar_cambios_pdf.php?lista_id=<?= $l['id'] ?>&origen=historial&modo=todos"
+               target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;">
+                📊 PDF aumentos y bajas
+            </a>
+        </div>
         <?php endif; ?>
 
         <form method="POST" action="<?= BASE_PATH ?>/listas/actions.php">

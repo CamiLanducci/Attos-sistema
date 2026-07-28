@@ -2,8 +2,8 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 
-set_time_limit(0);
-ini_set('memory_limit', '-1');
+set_time_limit(120);
+ini_set('memory_limit', '512M');
 
 $autoload = __DIR__ . '/../vendor/autoload.php';
 if (!file_exists($autoload)) {
@@ -21,25 +21,63 @@ require_once $autoload;
 
 use Mpdf\Mpdf;
 
-$listaId     = (int)($_GET['lista_id'] ?? 0);
-$previewData = $_SESSION['import_preview']    ?? null;
-$previewTs   = $_SESSION['import_preview_ts'] ?? 0;
+$listaId = (int)($_GET['lista_id'] ?? 0);
+$origen  = ($_GET['origen'] ?? 'preview') === 'historial' ? 'historial' : 'preview';
+$modo    = ($_GET['modo'] ?? 'todos') === 'aumentos' ? 'aumentos' : 'todos';
 
-if (!$listaId || !$previewData || (time() - $previewTs) > 1800 || empty($previewData[$listaId])) {
-    redirect(BASE_PATH . '/listas/importar.php?step=confirm&error=expired');
+if (!$listaId) {
+    redirect(BASE_PATH . '/listas/');
 }
 
-$data = $previewData[$listaId];
-if ($data['error'] ?? null) {
-    redirect(BASE_PATH . '/listas/importar.php?step=preview');
+$logFecha = null;
+
+if ($origen === 'historial') {
+    // PDF pedido desde el dashboard de Listas: usa el snapshot guardado en la
+    // última importación aplicada, no depende de la sesión de importación.
+    $db = getDB();
+    $stmt = $db->prepare("
+        SELECT l.*, log.changes_json, log.new_prods_json, log.fecha AS log_fecha
+        FROM listas l
+        JOIN lista_import_log log ON log.lista_id = l.id
+        WHERE l.id = ?
+    ");
+    $stmt->execute([$listaId]);
+    $row = $stmt->fetch();
+
+    if (!$row) {
+        redirect(BASE_PATH . '/listas/');
+    }
+
+    $lista    = $row;
+    $logFecha = $row['log_fecha'];
+    $changes  = json_decode($row['changes_json'], true) ?: [];
+    $newProds = json_decode($row['new_prods_json'], true) ?: [];
+} else {
+    $previewData = $_SESSION['import_preview']    ?? null;
+    $previewTs   = $_SESSION['import_preview_ts'] ?? 0;
+
+    if (!$previewData || (time() - $previewTs) > 1800 || empty($previewData[$listaId])) {
+        redirect(BASE_PATH . '/listas/importar.php?step=confirm&error=expired');
+    }
+
+    $data = $previewData[$listaId];
+    if ($data['error'] ?? null) {
+        redirect(BASE_PATH . '/listas/importar.php?step=preview');
+    }
+
+    $lista    = $data['lista'];
+    $changes  = $data['changes'];
+    $newProds = $data['new_prods'];
 }
 
-$lista    = $data['lista'];
-$changes  = $data['changes'];
-$newProds = $data['new_prods'];
+// "Solo aumentos" = únicamente los precios que efectivamente se aplicaron
+// (las bajas se avisan pero nunca se cargan — ver importar.php).
+if ($modo === 'aumentos') {
+    $changes = array_values(array_filter($changes, fn($c) => $c['pct'] >= 0));
+}
 
 if (empty($changes) && empty($newProds)) {
-    redirect(BASE_PATH . '/listas/importar.php?step=preview');
+    redirect($origen === 'historial' ? BASE_PATH . '/listas/?msg=sin_cambios_pdf' : BASE_PATH . '/listas/importar.php?step=preview');
 }
 
 $mpdf = new Mpdf([
@@ -53,7 +91,9 @@ $mpdf = new Mpdf([
     'default_font'  => 'dejavusans',
 ]);
 
-$mpdf->SetTitle('Cambios de precios — ' . $lista['codigo']);
+$tituloModo = $modo === 'aumentos' ? 'Aumentos aplicados' : 'Aumentos y bajas';
+
+$mpdf->SetTitle($tituloModo . ' — ' . $lista['codigo']);
 $mpdf->SetAuthor('ATTOS Distribuidora');
 
 $fecha = date('d/m/Y H:i');
@@ -84,13 +124,17 @@ tbody td { padding:2mm 2.5mm; border-bottom:0.15mm solid #EAE4DC; font-size:9pt;
 </head>
 <body>
 
-<h1>ATTOS — Cambios de precios</h1>
+<h1>ATTOS — <?= e($tituloModo) ?></h1>
 <div class="subtitle">
-    Lista <strong><?= e($lista['codigo']) ?></strong> (<?= $lista['margen'] ?>% margen) &middot; generado el <?= $fecha ?>
+    Lista <strong><?= e($lista['codigo']) ?></strong> (<?= $lista['margen'] ?>% margen)
+    <?php if ($logFecha): ?>
+        &middot; importado el <?= date('d/m/Y H:i', strtotime($logFecha)) ?>
+    <?php endif; ?>
+    &middot; PDF generado el <?= $fecha ?>
 </div>
 
 <?php if (!empty($changes)): ?>
-<h2>Precios modificados (<?= count($changes) ?>)</h2>
+<h2><?= $modo === 'aumentos' ? 'Aumentos aplicados' : 'Precios modificados' ?> (<?= count($changes) ?>)</h2>
 <table cellpadding="0" cellspacing="0">
     <thead>
         <tr>
@@ -100,14 +144,14 @@ tbody td { padding:2mm 2.5mm; border-bottom:0.15mm solid #EAE4DC; font-size:9pt;
             <td class="right">Precio anterior</td>
             <td class="right">Precio nuevo</td>
             <td class="right">Variación</td>
-            <td class="center">Aplicado</td>
+            <?php if ($modo !== 'aumentos'): ?><td class="center">Aplicado</td><?php endif; ?>
         </tr>
     </thead>
     <tbody>
     <?php foreach ($changes as $i => $c):
-        $sube   = $c['pct'] > 0;
-        $pctFmt = ($sube ? '+' : '') . number_format($c['pct'], 1) . '%';
-        $alt    = $i % 2 === 1 ? ' class="alt"' : '';
+        $aplicado = $c['pct'] >= 0;
+        $pctFmt   = ($aplicado ? '+' : '') . number_format($c['pct'], 1) . '%';
+        $alt      = $i % 2 === 1 ? ' class="alt"' : '';
     ?>
         <tr>
             <td<?= $alt ?>><?= e($c['codigo']) ?></td>
@@ -115,18 +159,22 @@ tbody td { padding:2mm 2.5mm; border-bottom:0.15mm solid #EAE4DC; font-size:9pt;
             <td<?= $alt ?>><?= e($c['marca']) ?></td>
             <td<?= $alt ?> class="right"><?= precio($c['viejo']) ?></td>
             <td<?= $alt ?> class="right"><?= precio($c['nuevo']) ?></td>
-            <td<?= $alt ?> class="right <?= $sube ? 'sube' : 'baja' ?>"><?= $pctFmt ?></td>
+            <td<?= $alt ?> class="right <?= $aplicado ? 'sube' : 'baja' ?>"><?= $pctFmt ?></td>
+            <?php if ($modo !== 'aumentos'): ?>
             <td<?= $alt ?> class="center">
-                <?php if ($sube): ?>Sí<?php else: ?><span class="tag-no-aplicado">No (baja)</span><?php endif; ?>
+                <?php if ($aplicado): ?>Sí<?php else: ?><span class="tag-no-aplicado">No (baja)</span><?php endif; ?>
             </td>
+            <?php endif; ?>
         </tr>
     <?php endforeach; ?>
     </tbody>
 </table>
+<?php if ($modo !== 'aumentos'): ?>
 <p class="nota">
     Las bajas de precio se informan a modo de aviso — el sistema no reduce automáticamente el precio
     cargado al importar; se conserva el precio anterior hasta que se actualice manualmente.
 </p>
+<?php endif; ?>
 <?php endif; ?>
 
 <?php if (!empty($newProds)): ?>
@@ -161,7 +209,8 @@ tbody td { padding:2mm 2.5mm; border-bottom:0.15mm solid #EAE4DC; font-size:9pt;
 $html = ob_get_clean();
 $mpdf->WriteHTML($html);
 
-$nombreArchivo = 'Attos-Cambios-' . preg_replace('/[^A-Za-z0-9_-]/', '', $lista['codigo']) . '-' . date('Ymd') . '.pdf';
+$sufijoModo    = $modo === 'aumentos' ? 'Aumentos' : 'AumentosYBajas';
+$nombreArchivo = 'Attos-' . $sufijoModo . '-' . preg_replace('/[^A-Za-z0-9_-]/', '', $lista['codigo']) . '-' . date('Ymd') . '.pdf';
 $pdfBin = $mpdf->Output('', 'S');
 
 header('Content-Type: application/pdf');
