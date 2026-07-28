@@ -30,7 +30,11 @@
       "Skill(claude-in-chrome)",
       "Bash(php -l listas/importar.php)",
       "Bash(php -l listas/exportar_cambios_pdf.php)",
-      "PowerShell($php = \"C:\\\\xampp\\\\php\\\\php.exe\"; if \\(Test-Path $php\\) { & $php -l \"listas\\\\importar.php\"; & $php -l \"listas\\\\exportar_cambios_pdf.php\" } else { \"php.exe not found at $php\" })"
+      "PowerShell($php = \"C:\\\\xampp\\\\php\\\\php.exe\"; if \\(Test-Path $php\\) { & $php -l \"listas\\\\importar.php\"; & $php -l \"listas\\\\exportar_cambios_pdf.php\" } else { \"php.exe not found at $php\" })",
+      "Bash(php -v)",
+      "PowerShell(Get-Command *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python *)"
     ]
   }
 }

@@ -93,10 +93,29 @@ if (!$isPost && $step === 'confirm') {
 if (!$isPost && $step === 'preview') {
     if (empty($listas)) redirect(BASE_PATH . '/listas/?msg=config_missing');
 
+    // Enviar el layout y arrancar a imprimir progreso YA — si nos quedamos mudos
+    // mientras descargamos/parseamos varias listas grandes, el proxy de producción
+    // (Clever Cloud) puede cortar la conexión con 502 antes de que termine.
+    $pageTitle     = 'Revisión de cambios';
+    $topbarActions = '<a href="' . BASE_PATH . '/listas/importar.php" class="btn btn-secondary">← Cancelar</a>';
+    require_once __DIR__ . '/../config/layout.php';
+
+    @ob_end_flush();
+    @ob_implicit_flush(1);
+
+    echo '<div class="card" style="max-width:900px; margin-bottom:24px;">';
+    echo '<div class="card-header"><span class="card-title">Descargando y comparando precios...</span></div>';
+    echo '<div class="card-body">';
+    echo '<pre style="font-size:12px; background:#1a1a1a; color:#e0e0e0; padding:12px; border-radius:4px; white-space:pre-wrap;">';
+    flush();
+
     $previewData = [];
 
     foreach ($listas as $lista) {
         $listaId = (int)$lista['id'];
+
+        echo "Descargando lista {$lista['codigo']}...\n";
+        flush();
 
         // Descargar
         $ch = curl_init();
@@ -116,6 +135,8 @@ if (!$isPost && $step === 'preview') {
         curl_close($ch);
 
         if ($rawHtml === false || $httpCode !== 200) {
+            echo "  ✗ HTTP {$httpCode}: {$curlErr}\n";
+            flush();
             $previewData[$listaId] = ['error' => "HTTP {$httpCode}: {$curlErr}", 'lista' => $lista];
             continue;
         }
@@ -123,6 +144,8 @@ if (!$isPost && $step === 'preview') {
         $productos = parsearHTMLProveedor($rawHtml);
 
         if (empty($productos)) {
+            echo "  ✗ No se encontraron productos en el HTML\n";
+            flush();
             $previewData[$listaId] = ['error' => 'No se encontraron productos en el HTML', 'lista' => $lista];
             continue;
         }
@@ -186,7 +209,14 @@ if (!$isPost && $step === 'preview') {
             'total'         => count($productos),
             'error'         => null,
         ];
+
+        echo "  ✓ " . count($productos) . " productos: " . count($changes) . " cambios, "
+           . count($newProds) . " nuevos, {$unchanged} sin cambio\n";
+        flush();
     }
+
+    echo "</pre></div></div>";
+    flush();
 
     // Guardar en sesión (TTL 30 min).
     // auth.php llamó session_write_close() antes — hay que reabrir para que los
@@ -195,10 +225,6 @@ if (!$isPost && $step === 'preview') {
     $_SESSION['import_preview']    = $previewData;
     $_SESSION['import_preview_ts'] = time();
     session_write_close();
-
-    $pageTitle     = 'Revisión de cambios';
-    $topbarActions = '<a href="' . BASE_PATH . '/listas/importar.php" class="btn btn-secondary">← Cancelar</a>';
-    require_once __DIR__ . '/../config/layout.php';
 
     $hayAlgo = false;
     foreach ($previewData as $d) {
