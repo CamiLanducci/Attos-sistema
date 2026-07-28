@@ -586,11 +586,18 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
 
             // Guardar snapshot de esta importación para poder generar los PDF
             // de cambios desde el dashboard más adelante (fuera de la sesión).
-            $db->prepare("
-                INSERT INTO lista_import_log (lista_id, fecha, changes_json, new_prods_json)
-                VALUES (?, NOW(), ?, ?)
-                ON DUPLICATE KEY UPDATE fecha=VALUES(fecha), changes_json=VALUES(changes_json), new_prods_json=VALUES(new_prods_json)
-            ")->execute([$listaId, json_encode($data['changes']), json_encode($data['new_prods'])]);
+            // Aparte del try/catch de la transacción: si esto falla (ej. la tabla
+            // todavía no existe) NO debe afectar los precios ya confirmados ni
+            // cortar el script con un rollBack() sobre una transacción ya commiteada.
+            try {
+                $db->prepare("
+                    INSERT INTO lista_import_log (lista_id, fecha, changes_json, new_prods_json)
+                    VALUES (?, NOW(), ?, ?)
+                    ON DUPLICATE KEY UPDATE fecha=VALUES(fecha), changes_json=VALUES(changes_json), new_prods_json=VALUES(new_prods_json)
+                ")->execute([$listaId, json_encode($data['changes']), json_encode($data['new_prods'])]);
+            } catch (Exception $e) {
+                echo "\n⚠ No se pudo guardar el snapshot para el PDF del dashboard: " . htmlspecialchars($e->getMessage()) . "\n";
+            }
 
             echo "\n✓ {$listaCod} completada: {$cntNuevos} nuevos, {$cntActualizados} actualizados, {$cntSkip} manuales (sin tocar), {$cntBajasOmitidas} bajas no aplicadas.\n";
 
