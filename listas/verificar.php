@@ -8,8 +8,9 @@ require_once __DIR__ . '/../config/layout.php';
 
 $db = getDB();
 
-$listas   = $db->query("SELECT * FROM listas ORDER BY margen ASC")->fetchAll();
-$listaIds = array_column($listas, 'id');
+$listas      = $db->query("SELECT * FROM listas ORDER BY margen ASC")->fetchAll();
+$listaIds    = array_column($listas, 'id');
+$listasPorId = array_column($listas, null, 'id');
 
 // Conteo de productos por lista
 $conteos = [];
@@ -84,6 +85,8 @@ foreach ($listas as $lista) {
                 <td style="padding:6px 8px; font-size:11px; color:var(--text-soft); max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                     <?php if ($l['url_actualizacion']): ?>
                         <span title="<?= e($l['url_actualizacion']) ?>"><?= e(substr($l['url_actualizacion'], 0, 55)) ?>…</span>
+                    <?php elseif (!empty($l['deriva_de_lista_id']) && isset($listasPorId[$l['deriva_de_lista_id']])): ?>
+                        <span>Deriva de <strong><?= e($listasPorId[$l['deriva_de_lista_id']]['codigo']) ?></strong></span>
                     <?php else: ?>
                         <span style="color:#aaa;">Sin URL</span>
                     <?php endif; ?>

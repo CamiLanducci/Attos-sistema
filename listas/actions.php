@@ -20,18 +20,23 @@ if ($action === 'create') {
     redirect(BASE_PATH . '/listas/?msg=updated');
 }
 
-// ── Actualizar lista (codigo + url_actualizacion) ─────────────
-$id     = (int)($_POST['id'] ?? 0);
-$codigo = trim($_POST['codigo'] ?? '');
-$url    = trim($_POST['url_actualizacion'] ?? '');
+// ── Actualizar lista (codigo + url_actualizacion o deriva_de_lista_id) ────
+$id         = (int)($_POST['id'] ?? 0);
+$codigo     = trim($_POST['codigo'] ?? '');
+$url        = trim($_POST['url_actualizacion'] ?? '');
+$derivaDeId = (int)($_POST['deriva_de_lista_id'] ?? 0);
 
 if ($url !== '' && !preg_match('#^https?://#i', $url)) {
     $url = '';
 }
 
+// Una lista tiene URL propia o deriva de otra, no ambas a la vez.
+if ($derivaDeId === $id) $derivaDeId = 0;
+if ($derivaDeId > 0) $url = '';
+
 if ($id > 0 && $codigo !== '') {
-    $db->prepare("UPDATE listas SET codigo=?, url_actualizacion=? WHERE id=?")
-       ->execute([$codigo, $url ?: null, $id]);
+    $db->prepare("UPDATE listas SET codigo=?, url_actualizacion=?, deriva_de_lista_id=? WHERE id=?")
+       ->execute([$codigo, $url ?: null, $derivaDeId ?: null, $id]);
 }
 
 redirect(BASE_PATH . '/listas/?msg=updated');

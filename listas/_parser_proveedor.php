@@ -113,3 +113,55 @@ function parsearHTMLProveedor(string $html): array {
 
     return $productos;
 }
+
+/**
+ * Los catálogos públicos nuevos (ej: aqv.soysowi.com) son una SPA: la URL que
+ * se comparte (/catalogo/publico/{token}) sirve el HTML vacío de la app, y los
+ * datos reales están en /api/products/catalog/public/{token}/ (JSON). Si la URL
+ * configurada es la de la página pública, la reescribimos a la del API.
+ */
+function _lp_resolverUrlApiCatalogo(string $url): string {
+    if (preg_match('~^(https?://[^/]+)/catalogo/publico/([^/?#]+)~i', $url, $m)) {
+        return $m[1] . '/api/products/catalog/public/' . $m[2] . '/';
+    }
+    return $url;
+}
+
+/**
+ * Parsea la respuesta JSON del API de catálogo público (formato nuevo).
+ * Estructura: { estado, bodegas: [{ bodega, productos: [{codigo, descripcion, presentacion, precio}] }] }
+ * "bodega" se usa como marca. No siempre viene el pack (unidades por caja) —
+ * cuando no viene, 'pack' queda en null para no pisar el valor ya cargado del producto.
+ */
+function parsearJSONCatalogoProveedor(array $data): array {
+    if (($data['estado'] ?? '') !== 'vigente' || empty($data['bodegas'])) return [];
+
+    $productos = [];
+    foreach ($data['bodegas'] as $bodega) {
+        $marca = trim((string)($bodega['bodega'] ?? ''));
+        if ($marca === '') $marca = 'SIN MARCA';
+
+        foreach (($bodega['productos'] ?? []) as $p) {
+            $codigo       = trim((string)($p['codigo'] ?? ''));
+            $nombre       = trim((string)($p['descripcion'] ?? ''));
+            $precioUnidad = (float)($p['precio'] ?? 0);
+
+            if ($codigo === '' || $nombre === '' || $precioUnidad <= 0) continue;
+
+            $pack = null;
+            if (!empty($p['presentacion']) && preg_match('/x\s*(\d+)/i', $p['presentacion'], $pm)) {
+                $pack = (int)$pm[1];
+            }
+
+            $productos[] = [
+                'nombre'        => $nombre,
+                'codigo'        => $codigo,
+                'marca'         => $marca,
+                'pack'          => $pack,
+                'precio_unidad' => $precioUnidad,
+            ];
+        }
+    }
+
+    return $productos;
+}

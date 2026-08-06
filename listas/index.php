@@ -12,7 +12,10 @@ $listas = $db->query("
 ")->fetchAll();
 
 $msg = $_GET['msg'] ?? '';
-$listasConUrl = array_filter($listas, fn($l) => !empty($l['url_actualizacion']));
+$listasConUrl      = array_filter($listas, fn($l) => !empty($l['url_actualizacion']));
+$listasDerivadas   = array_filter($listas, fn($l) => empty($l['url_actualizacion']) && !empty($l['deriva_de_lista_id']));
+$listasImportables = $listasConUrl + $listasDerivadas;
+$listasPorId       = array_column($listas, null, 'id');
 
 require_once __DIR__ . '/../config/layout.php';
 ?>
@@ -25,12 +28,13 @@ require_once __DIR__ . '/../config/layout.php';
 <!-- Botón de importación global -->
 <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
     <a href="<?= BASE_PATH ?>/listas/importar.php"
-       class="btn btn-primary <?= empty($listasConUrl) ? 'disabled' : '' ?>"
-       <?= empty($listasConUrl) ? 'onclick="return false;" title=\'Configurá al menos una URL en las listas\'' : '' ?>>
+       class="btn btn-primary <?= empty($listasImportables) ? 'disabled' : '' ?>"
+       <?= empty($listasImportables) ? 'onclick="return false;" title=\'Configurá al menos una URL en las listas\'' : '' ?>>
         ↓ Importar precios desde proveedor
     </a>
     <span class="text-muted" style="font-size:12px;">
-        <?= count($listasConUrl) ?> de <?= count($listas) ?> listas con URL configurada
+        <?= count($listasImportables) ?> de <?= count($listas) ?> listas configuradas
+        (<?= count($listasConUrl) ?> con URL, <?= count($listasDerivadas) ?> derivadas)
     </span>
     <a href="<?= BASE_PATH ?>/listas/verificar.php" class="btn btn-secondary btn-sm">Ver estado importación</a>
 </div>
@@ -43,6 +47,16 @@ require_once __DIR__ . '/../config/layout.php';
         <span class="lista-margen"><?= $l['margen'] ?>%</span>
     </div>
     <div class="lista-card-body">
+
+        <?php if (!empty($l['deriva_de_lista_id']) && isset($listasPorId[$l['deriva_de_lista_id']])):
+            $base = $listasPorId[$l['deriva_de_lista_id']];
+            $diff = $l['margen'] - $base['margen'];
+        ?>
+        <div style="font-size:11px; color:var(--text-soft); margin-bottom:10px;">
+            Deriva de <strong><?= e($base['codigo']) ?></strong>
+            (<?= $diff >= 0 ? '+' : '' ?><?= number_format($diff, 2) ?>% sobre su precio)
+        </div>
+        <?php endif; ?>
 
         <?php if ($l['ultima_actualizacion']): ?>
         <div class="lista-stat" style="margin-bottom:12px;">
@@ -85,6 +99,20 @@ require_once __DIR__ . '/../config/layout.php';
                        value="<?= e($l['url_actualizacion'] ?? '') ?>"
                        placeholder="https://…"
                        style="font-size:11px;">
+            </div>
+            <div class="form-group">
+                <label class="form-label">O deriva precios de otra lista</label>
+                <select name="deriva_de_lista_id" class="form-control" style="font-size:12px;">
+                    <option value="">— Ninguna (usa la URL de arriba) —</option>
+                    <?php foreach ($listas as $otra): if ($otra['id'] == $l['id']) continue; ?>
+                    <option value="<?= $otra['id'] ?>" <?= (int)($l['deriva_de_lista_id'] ?? 0) === (int)$otra['id'] ? 'selected' : '' ?>>
+                        <?= e($otra['codigo']) ?> (<?= $otra['margen'] ?>%)
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <span class="text-muted" style="font-size:11px;">
+                    El precio se calcula como el de esa lista ± la diferencia de margen.
+                </span>
             </div>
             <div class="form-actions">
                 <button type="submit" name="action" value="update" class="btn btn-secondary btn-sm">

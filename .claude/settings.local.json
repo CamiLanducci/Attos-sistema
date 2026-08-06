@@ -34,7 +34,14 @@
       "Bash(php -v)",
       "PowerShell(Get-Command *)",
       "Bash(python3 -c ' *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(curl *)",
+      "Bash(node *)",
+      "Bash(mysql --version)",
+      "Bash(where php *)",
+      "Bash(git checkout *)",
+      "Bash(find /c -maxdepth 2 -iname \"xampp*\")",
+      "Bash(find /d -maxdepth 2 -iname \"xampp*\")"
     ]
   }
 }

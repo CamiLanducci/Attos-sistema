@@ -6,12 +6,22 @@ require_once __DIR__ . '/_parser_proveedor.php';
 set_time_limit(0);
 ignore_user_abort(true);
 
-$db     = getDB();
-$listas = $db->query("
-    SELECT * FROM listas
-    WHERE url_actualizacion IS NOT NULL AND url_actualizacion != ''
-    ORDER BY margen ASC
-")->fetchAll();
+$db          = getDB();
+$todasListas = $db->query("SELECT * FROM listas ORDER BY margen ASC")->fetchAll();
+$listasPorId = array_column($todasListas, null, 'id');
+
+// Listas "base": tienen URL propia y se descargan/parsean del proveedor.
+$listasBase = array_filter($todasListas, fn($l) => !empty($l['url_actualizacion']));
+
+// Listas "derivadas": no tienen URL propia, sus precios se calculan a partir de
+// otra lista (base o ya derivada) ajustando el precio según la diferencia de margen.
+$listasDerivadas = array_filter($todasListas, function($l) use ($listasPorId) {
+    return empty($l['url_actualizacion'])
+        && !empty($l['deriva_de_lista_id'])
+        && isset($listasPorId[$l['deriva_de_lista_id']]);
+});
+
+$listas = $listasBase + $listasDerivadas; // todas las listas importables en esta corrida
 
 $step   = $_GET['step'] ?? 'confirm';
 $isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
@@ -20,7 +30,6 @@ $isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
 // PASO 1 — Pantalla inicial
 // ══════════════════════════════════════════════════════════════════════════════
 if (!$isPost && $step === 'confirm') {
-    $todasListas   = $db->query("SELECT * FROM listas ORDER BY margen ASC")->fetchAll();
     $pageTitle     = 'Importar precios';
     $topbarActions = '<a href="' . BASE_PATH . '/listas/" class="btn btn-secondary">← Volver</a>';
     require_once __DIR__ . '/../config/layout.php';
@@ -29,35 +38,45 @@ if (!$isPost && $step === 'confirm') {
         <div class="card-header"><span class="card-title">Confirmar importación</span></div>
         <div class="card-body">
             <p style="font-size:13px; color:var(--text-soft); margin-bottom:16px;">
-                Los precios se toman <strong>directamente de cada URL</strong> — sin aplicar margen.
-                El sistema descargará y mostrará todos los cambios antes de guardarlos.
+                Las listas con URL se descargan <strong>directamente del proveedor</strong>.
+                Las listas derivadas se calculan a partir de otra lista, ajustando el precio
+                según la diferencia de margen. El sistema mostrará todos los cambios antes de guardarlos.
             </p>
             <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:20px;">
                 <thead>
                     <tr style="border-bottom:2px solid var(--border);">
                         <th style="padding:6px 8px; text-align:left;">Lista</th>
-                        <th style="padding:6px 8px; text-align:left;">URL</th>
+                        <th style="padding:6px 8px; text-align:left;">Origen</th>
                         <th style="padding:6px 8px; text-align:center;">Estado</th>
                     </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($todasListas as $l): ?>
+                <?php foreach ($todasListas as $l):
+                    $esBase     = !empty($l['url_actualizacion']);
+                    $baseDeriv  = !$esBase && !empty($l['deriva_de_lista_id']) ? ($listasPorId[$l['deriva_de_lista_id']] ?? null) : null;
+                    $seImporta  = $esBase || $baseDeriv;
+                ?>
                 <tr style="border-bottom:1px solid var(--border);">
                     <td style="padding:6px 8px;">
                         <strong><?= e($l['codigo']) ?></strong>
                         <span class="text-muted" style="font-size:11px;">(<?= $l['margen'] ?>%)</span>
                     </td>
                     <td style="padding:6px 8px; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                        <?php if ($l['url_actualizacion']): ?>
+                        <?php if ($esBase): ?>
                             <span style="font-size:11px; color:var(--text-soft);" title="<?= e($l['url_actualizacion']) ?>">
                                 <?= e(substr($l['url_actualizacion'], 0, 60)) ?>…
                             </span>
+                        <?php elseif ($baseDeriv): ?>
+                            <span style="font-size:11px; color:var(--text-soft);">
+                                Deriva de <strong><?= e($baseDeriv['codigo']) ?></strong>
+                                (<?= $l['margen'] - $baseDeriv['margen'] >= 0 ? '+' : '' ?><?= number_format($l['margen'] - $baseDeriv['margen'], 2) ?>%)
+                            </span>
                         <?php else: ?>
-                            <span class="text-muted" style="font-size:11px;">Sin URL — se omite</span>
+                            <span class="text-muted" style="font-size:11px;">Sin URL ni lista base — se omite</span>
                         <?php endif; ?>
                     </td>
                     <td style="padding:6px 8px; text-align:center;">
-                        <?php if ($l['url_actualizacion']): ?>
+                        <?php if ($seImporta): ?>
                             <span class="badge badge-success">✓ importar</span>
                         <?php else: ?>
                             <span class="badge badge-gray">omitir</span>
@@ -69,7 +88,7 @@ if (!$isPost && $step === 'confirm') {
             </table>
             <?php if (empty($listas)): ?>
             <div class="alert" style="background:#fef3cd; color:#856404; padding:10px 14px; border-radius:4px; margin-bottom:16px; font-size:13px;">
-                Ninguna lista tiene URL configurada. Configurá las URLs en la pantalla de Listas antes de importar.
+                Ninguna lista tiene URL ni lista base configurada. Configurá las listas antes de importar.
             </div>
             <a href="<?= BASE_PATH ?>/listas/" class="btn btn-secondary">← Volver a Listas</a>
             <?php else: ?>
@@ -111,46 +130,11 @@ if (!$isPost && $step === 'preview') {
 
     $previewData = [];
 
-    foreach ($listas as $lista) {
+    // Compara los productos descargados/derivados contra los costos vigentes de
+    // la lista y arma la entrada de preview (changes/new_prods/unchanged).
+    $construirPreviewLista = function(array $lista, array $productos) use ($db): array {
         $listaId = (int)$lista['id'];
 
-        echo "Descargando lista {$lista['codigo']}...\n";
-        flush();
-
-        // Descargar
-        $ch = curl_init();
-        curl_setopt_array($ch, [
-            CURLOPT_URL            => $lista['url_actualizacion'],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 60,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS      => 5,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-            CURLOPT_HTTPHEADER     => ['Accept: text/html, */*'],
-        ]);
-        $rawHtml  = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr  = curl_error($ch);
-        curl_close($ch);
-
-        if ($rawHtml === false || $httpCode !== 200) {
-            echo "  ✗ HTTP {$httpCode}: {$curlErr}\n";
-            flush();
-            $previewData[$listaId] = ['error' => "HTTP {$httpCode}: {$curlErr}", 'lista' => $lista];
-            continue;
-        }
-
-        $productos = parsearHTMLProveedor($rawHtml);
-
-        if (empty($productos)) {
-            echo "  ✗ No se encontraron productos en el HTML\n";
-            flush();
-            $previewData[$listaId] = ['error' => 'No se encontraron productos en el HTML', 'lista' => $lista];
-            continue;
-        }
-
-        // Costos actuales de esta lista (por codigo de producto)
         $stmtOld = $db->prepare("
             SELECT p.codigo, lp.costo
             FROM lista_precios lp
@@ -200,7 +184,7 @@ if (!$isPost && $step === 'preview') {
         // Ordenar por mayor variación absoluta primero
         usort($changes, fn($a, $b) => abs($b['pct']) <=> abs($a['pct']));
 
-        $previewData[$listaId] = [
+        return [
             'lista'         => $lista,
             'productos_raw' => $productos,
             'changes'       => $changes,
@@ -209,14 +193,137 @@ if (!$isPost && $step === 'preview') {
             'total'         => count($productos),
             'error'         => null,
         ];
+    };
 
-        echo "  ✓ " . count($productos) . " productos: " . count($changes) . " cambios, "
-           . count($newProds) . " nuevos, {$unchanged} sin cambio\n";
+    // ── Listas base: se descargan y parsean del proveedor ─────────────────
+    foreach ($listasBase as $lista) {
+        $listaId = (int)$lista['id'];
+
+        echo "Descargando lista {$lista['codigo']}...\n";
         flush();
+
+        $urlDescarga = _lp_resolverUrlApiCatalogo($lista['url_actualizacion']);
+        $esApiJson   = $urlDescarga !== $lista['url_actualizacion'];
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $urlDescarga,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 5,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            CURLOPT_HTTPHEADER     => ['Accept: application/json, text/html, */*'],
+        ]);
+        $raw      = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        curl_close($ch);
+
+        if ($raw === false || ($httpCode !== 200 && $httpCode !== 429 && $httpCode !== 410)) {
+            echo "  ✗ HTTP {$httpCode}: {$curlErr}\n";
+            flush();
+            $previewData[$listaId] = ['error' => "HTTP {$httpCode}: {$curlErr}", 'lista' => $lista];
+            continue;
+        }
+
+        $productos = [];
+        $errorMsg  = null;
+
+        $json = json_decode((string)$raw, true);
+        if (is_array($json)) {
+            $estado = $json['estado'] ?? null;
+            if ($httpCode === 429 || $estado === 'throttled') {
+                $errorMsg = 'El proveedor está limitando las visitas a este link — probá de nuevo en unos minutos';
+            } elseif ($httpCode === 410 || ($estado !== null && $estado !== 'vigente')) {
+                $errorMsg = 'El link del catálogo venció — pedile al proveedor un link nuevo';
+            } else {
+                $productos = parsearJSONCatalogoProveedor($json);
+                if (empty($productos)) $errorMsg = 'No se encontraron productos en la respuesta del proveedor';
+            }
+        } elseif ($esApiJson) {
+            $errorMsg = 'La respuesta del proveedor no es el JSON esperado';
+        } else {
+            $productos = parsearHTMLProveedor((string)$raw);
+            if (empty($productos)) $errorMsg = 'No se encontraron productos en el HTML';
+        }
+
+        if ($errorMsg !== null) {
+            echo "  ✗ {$errorMsg}\n";
+            flush();
+            $previewData[$listaId] = ['error' => $errorMsg, 'lista' => $lista];
+            continue;
+        }
+
+        $previewData[$listaId] = $construirPreviewLista($lista, $productos);
+
+        echo "  ✓ " . count($productos) . " productos: " . count($previewData[$listaId]['changes']) . " cambios, "
+           . count($previewData[$listaId]['new_prods']) . " nuevos, {$previewData[$listaId]['unchanged']} sin cambio\n";
+        flush();
+    }
+
+    // ── Listas derivadas: se calculan a partir de otra lista ya procesada ──
+    // (que puede ser una lista base, o a su vez otra derivada — de ahí el
+    // reintento en varias pasadas hasta que ya no queden pendientes resolubles)
+    $pendientes = $listasDerivadas;
+    while (!empty($pendientes)) {
+        $resueltasEnEstaPasada = false;
+
+        foreach ($pendientes as $key => $lista) {
+            $baseId = (int)$lista['deriva_de_lista_id'];
+            if (!array_key_exists($baseId, $previewData)) continue; // su base todavía no se procesó
+
+            $listaId  = (int)$lista['id'];
+            $baseData = $previewData[$baseId];
+
+            echo "Calculando lista {$lista['codigo']} a partir de {$listasPorId[$baseId]['codigo']}...\n";
+            flush();
+
+            if ($baseData['error'] ?? null) {
+                $msg = "No se pudo calcular: la lista base {$listasPorId[$baseId]['codigo']} no se importó correctamente";
+                echo "  ✗ {$msg}\n";
+                flush();
+                $previewData[$listaId] = ['error' => $msg, 'lista' => $lista];
+            } else {
+                $margenBase = (float)$listasPorId[$baseId]['margen'];
+                $margenEsta = (float)$lista['margen'];
+                $factor     = 1 + (($margenEsta - $margenBase) / 100);
+
+                $productos = array_map(function($prod) use ($factor) {
+                    $prod['precio_unidad'] = round($prod['precio_unidad'] * $factor, 2);
+                    return $prod;
+                }, $baseData['productos_raw']);
+
+                $previewData[$listaId] = $construirPreviewLista($lista, $productos);
+
+                echo "  ✓ " . count($productos) . " productos: " . count($previewData[$listaId]['changes']) . " cambios, "
+                   . count($previewData[$listaId]['new_prods']) . " nuevos, {$previewData[$listaId]['unchanged']} sin cambio\n";
+                flush();
+            }
+
+            unset($pendientes[$key]);
+            $resueltasEnEstaPasada = true;
+        }
+
+        if (!$resueltasEnEstaPasada) {
+            // Quedan derivadas cuya base nunca se procesó (ciclo o base inválida)
+            foreach ($pendientes as $lista) {
+                $previewData[(int)$lista['id']] = [
+                    'error' => 'No se pudo calcular: la lista base no se procesó (revisá la configuración de "deriva de")',
+                    'lista' => $lista,
+                ];
+            }
+            break;
+        }
     }
 
     echo "</pre></div></div>";
     flush();
+
+    // Reordenar el preview según el orden original de las listas (margen ASC),
+    // ya que las derivadas se procesaron después de las base.
+    uasort($previewData, fn($a, $b) => $a['lista']['margen'] <=> $b['lista']['margen']);
 
     // Guardar en sesión (TTL 30 min).
     // auth.php llamó session_write_close() antes — hay que reabrir para que los
@@ -389,7 +496,9 @@ if (!$isPost && $step === 'preview') {
                             <td style="padding:4px 8px; color:#888; font-size:11px;"><?= e($np['codigo']) ?></td>
                             <td style="padding:4px 8px;"><?= e($np['nombre']) ?></td>
                             <td style="padding:4px 8px; color:var(--text-soft);"><?= e($np['marca']) ?></td>
-                            <td style="padding:4px 8px; text-align:center; color:var(--text-soft);"><?= (int)$np['pack'] ?></td>
+                            <td style="padding:4px 8px; text-align:center; color:var(--text-soft);">
+                                <?= $np['pack'] !== null ? (int)$np['pack'] : '<span title="No informado por el proveedor, se usará 6 por defecto">6*</span>' ?>
+                            </td>
                             <td style="padding:4px 8px; text-align:right;"><?= precio($np['precio']) ?></td>
                         </tr>
                         <?php endforeach; ?>
@@ -474,16 +583,15 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
         return false;
     };
 
-    $stmtByCode = $db->prepare("SELECT id, origen FROM productos WHERE codigo = ? LIMIT 1");
+    $stmtByCode = $db->prepare("SELECT id, unidades_por_caja FROM productos WHERE codigo = ? LIMIT 1");
     $stmtInsert = $db->prepare("
         INSERT INTO productos (codigo, nombre, marca, unidades_por_caja, precio_por_pack, categoria, origen, activo)
         VALUES (?,?,?,?,?,?,'url',1)
     ");
-    $stmtUpdate = $db->prepare("
-        UPDATE productos
-        SET nombre=?, marca=?, unidades_por_caja=?, activo=1, updated_at=NOW()
-        WHERE id=?
-    ");
+    // Producto ya existente (matcheado por código): el import NUNCA toca su
+    // código, nombre, marca ni unidades por caja — esos datos se cargan/editan
+    // a mano en /productos/. Sólo se reactiva si estaba dado de baja.
+    $stmtReactivar = $db->prepare("UPDATE productos SET activo=1, updated_at=NOW() WHERE id=?");
     $stmtLpUp = $db->prepare("
         INSERT INTO lista_precios (lista_id, producto_id, costo, costo_caja)
         VALUES (?,?,?,?)
@@ -511,7 +619,6 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
 
         $cntNuevos        = 0;
         $cntActualizados  = 0;
-        $cntSkip          = 0;
         $cntBajasOmitidas = 0;
         $cntPreciosModif  = count($data['changes']) + count($data['new_prods']);
 
@@ -528,30 +635,30 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 $codigo       = $prod['codigo'];
                 $nombre       = $prod['nombre'];
                 $marca        = $prod['marca'];
-                $pack         = $prod['pack'];
+                $pack         = $prod['pack']; // sólo se usa si el producto es nuevo; puede venir null
                 $precioUnidad = $prod['precio_unidad'];
-                $precioCaja   = round($precioUnidad * $pack, 2);
 
                 $esCerv = $esMarcaCerveza($marca);
 
                 $stmtByCode->execute([$codigo]);
                 $existente = $stmtByCode->fetch();
 
-                if ($existente && $existente['origen'] === 'manual') {
-                    $productoId = (int)$existente['id'];
-                    $cntSkip++;
-                } elseif ($existente) {
-                    $stmtUpdate->execute([$nombre, $marca, $pack, (int)$existente['id']]);
-                    $productoId = (int)$existente['id'];
+                if ($existente) {
+                    $productoId   = (int)$existente['id'];
+                    $unidadesCaja = (int)$existente['unidades_por_caja']; // se conserva siempre la ya cargada
+                    $stmtReactivar->execute([$productoId]);
                     $cntActualizados++;
                 } else {
-                    $packFlag = $esCerv ? 1 : 0;
-                    $catFlag  = $esCerv ? 'Cerveza' : null;
-                    $stmtInsert->execute([$codigo, $nombre, $marca, $pack, $packFlag, $catFlag]);
+                    $unidadesCaja = $pack ?? 6; // default del sistema para productos nuevos sin dato de pack
+                    $packFlag     = $esCerv ? 1 : 0;
+                    $catFlag      = $esCerv ? 'Cerveza' : null;
+                    $stmtInsert->execute([$codigo, $nombre, $marca, $unidadesCaja, $packFlag, $catFlag]);
                     $productoId = (int)$db->lastInsertId();
                     echo "[nuevo] {$nombre} [{$codigo}]" . ($esCerv ? " [cerveza]" : "") . "\n";
                     $cntNuevos++;
                 }
+
+                $precioCaja = round($precioUnidad * $unidadesCaja, 2);
 
                 if (isset($bajaCodigos[$codigo])) {
                     // Baja de precio detectada: se avisó en la revisión pero no se aplica.
@@ -561,14 +668,14 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                     $costoParaCaja = $esCerv ? $precioUnidad : $precioCaja;
                     $stmtLpUp->execute([$listaId, $productoId, $precioUnidad, $costoParaCaja]);
 
-                    // Guardar costo de compra: precio importado / (1 + margen) — sólo si no fue ingresado manualmente
-                    if (!($existente && $existente['origen'] === 'manual')) {
-                        $margenLista = (float)$lista['margen'];
-                        $costoCompra = $margenLista > 0
-                            ? round($precioUnidad / (1 + $margenLista / 100), 4)
-                            : $precioUnidad;
-                        $stmtCostoUp->execute([$costoCompra, $productoId]);
-                    }
+                    // Backfill de costo de compra (precio importado / (1 + margen)) — la
+                    // consulta sólo pisa filas con costo_compra NULL, así que es seguro
+                    // correrla siempre, tanto para productos nuevos como existentes.
+                    $margenLista = (float)$lista['margen'];
+                    $costoCompra = $margenLista > 0
+                        ? round($precioUnidad / (1 + $margenLista / 100), 4)
+                        : $precioUnidad;
+                    $stmtCostoUp->execute([$costoCompra, $productoId]);
                 }
 
                 if (($i + 1) % 30 === 0) flush();
@@ -599,7 +706,7 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 echo "\n⚠ No se pudo guardar el snapshot para el PDF del dashboard: " . htmlspecialchars($e->getMessage()) . "\n";
             }
 
-            echo "\n✓ {$listaCod} completada: {$cntNuevos} nuevos, {$cntActualizados} actualizados, {$cntSkip} manuales (sin tocar), {$cntBajasOmitidas} bajas no aplicadas.\n";
+            echo "\n✓ {$listaCod} completada: {$cntNuevos} nuevos, {$cntActualizados} con precio actualizado, {$cntBajasOmitidas} bajas no aplicadas.\n";
 
             $resumenGlobal[] = [
                 'lista'          => $listaCod,
@@ -607,7 +714,6 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 'error'          => null,
                 'nuevos'         => $cntNuevos,
                 'actualizados'   => $cntActualizados,
-                'skip'           => $cntSkip,
                 'bajas_omitidas' => $cntBajasOmitidas,
                 'total'          => count($productos),
                 'precios_modif'  => $cntPreciosModif,
