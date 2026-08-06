@@ -685,7 +685,38 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 }
             }
 
-            // El usuario revisó y aceptó → siempre registrar la actualización
+            // ── Productos sin stock: estaban activos en esta lista pero no
+            // vinieron en el catálogo del proveedor esta vez → se desactivan
+            // para que no se puedan seguir vendiendo. Sólo corre para listas
+            // base (con URL propia): las derivadas heredan el mismo conjunto
+            // de códigos que su base, así que ya quedan cubiertas por ella.
+            // Se excluyen los productos origen='manual' (no vienen del
+            // proveedor, su ausencia del catálogo no significa nada).
+            $cntSinStock = 0;
+            if (!empty($lista['url_actualizacion'])) {
+                $codigosVistos = array_flip(array_column($productos, 'codigo'));
+
+                $stmtFaltantes = $db->prepare("
+                    SELECT p.id, p.codigo
+                    FROM lista_precios lp
+                    JOIN productos p ON p.id = lp.producto_id
+                    WHERE lp.lista_id = ? AND p.activo = 1 AND p.origen != 'manual'
+                ");
+                $stmtFaltantes->execute([$listaId]);
+
+                $stmtDesactivar = $db->prepare("UPDATE productos SET activo=0, updated_at=NOW() WHERE id=?");
+
+                foreach ($stmtFaltantes->fetchAll() as $row) {
+                    if (!isset($codigosVistos[$row['codigo']])) {
+                        $stmtDesactivar->execute([$row['id']]);
+                        echo "[sin stock] {$row['codigo']} — no vino en el catálogo, se desactiva\n";
+                        $cntSinStock++;
+                    }
+                }
+                flush();
+            }
+
+            
             $db->prepare("UPDATE listas SET ultima_actualizacion = NOW() WHERE id = ?")
                ->execute([$listaId]);
 
@@ -706,7 +737,8 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 echo "\n⚠ No se pudo guardar el snapshot para el PDF del dashboard: " . htmlspecialchars($e->getMessage()) . "\n";
             }
 
-            echo "\n✓ {$listaCod} completada: {$cntNuevos} nuevos, {$cntActualizados} con precio actualizado, {$cntBajasOmitidas} bajas no aplicadas.\n";
+            echo "\n✓ {$listaCod} completada: {$cntNuevos} nuevos, {$cntActualizados} con precio actualizado, "
+               . "{$cntBajasOmitidas} bajas no aplicadas, {$cntSinStock} sin stock (desactivados).\n";
 
             $resumenGlobal[] = [
                 'lista'          => $listaCod,
@@ -715,6 +747,7 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                 'nuevos'         => $cntNuevos,
                 'actualizados'   => $cntActualizados,
                 'bajas_omitidas' => $cntBajasOmitidas,
+                'sin_stock'      => $cntSinStock,
                 'total'          => count($productos),
                 'precios_modif'  => $cntPreciosModif,
                 'pct_modif'      => $data['total'] > 0
@@ -750,6 +783,7 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                         <th style="padding:5px 8px; text-align:center;">Actualizados</th>
                         <th style="padding:5px 8px; text-align:center;">Precios modif.</th>
                         <th style="padding:5px 8px; text-align:center;">Bajas no aplicadas</th>
+                        <th style="padding:5px 8px; text-align:center;">Sin stock</th>
                         <th style="padding:5px 8px; text-align:left;">Estado</th>
                     </tr>
                 </thead>
@@ -776,6 +810,11 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
                     <td style="padding:5px 8px; text-align:center;">
                         <?php if (($r['bajas_omitidas'] ?? 0) > 0): ?>
                             <span style="color:#27ae60; font-weight:600;"><?= $r['bajas_omitidas'] ?></span>
+                        <?php else: ?>—<?php endif; ?>
+                    </td>
+                    <td style="padding:5px 8px; text-align:center;">
+                        <?php if (($r['sin_stock'] ?? 0) > 0): ?>
+                            <span style="color:#c0392b; font-weight:600;"><?= $r['sin_stock'] ?></span>
                         <?php else: ?>—<?php endif; ?>
                     </td>
                     <td style="padding:5px 8px;">

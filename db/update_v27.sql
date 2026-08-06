@@ -1,6 +1,5 @@
 -- ATTOS — update_v27.sql
--- Permite que una lista derive sus precios de otra lista en vez de tener su
--- propia URL de proveedor (ej: el proveedor sólo publica el listado del 20%
+-- Permite que una lista derive sus precios de otra lista (el proveedor sólo publica el listado del 20%
 -- y las demás listas se calculan a partir de ese, ajustando el precio según
 -- la diferencia de margen entre listas).
 

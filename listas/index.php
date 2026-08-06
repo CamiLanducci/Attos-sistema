@@ -1,62 +1,202 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/auth.php';
 $pageTitle = 'Listas / Márgenes';
 
-$db     = getDB();
-$listas = $db->query("
+// Esquema fijo: sólo existen (para este flujo) las listas de 10/15/20/25%.
+// La del 20% es la "base" — tiene la URL del proveedor. Las otras 3 se
+// calculan siempre a partir de ella: 20−10=10%, 20−5=15%, 20+5=25%.
+const MARGENES_FIJOS = [10, 15, 20, 25];
+const MARGEN_BASE    = 20;
+
+$db    = getDB();
+$filas = $db->query("
     SELECT l.*, log.fecha AS import_log_fecha
     FROM listas l
     LEFT JOIN lista_import_log log ON log.lista_id = l.id
-    ORDER BY l.margen DESC
+    WHERE l.margen IN (" . implode(',', MARGENES_FIJOS) . ")
+    ORDER BY l.margen ASC
 ")->fetchAll();
 
+$porMargen  = [];
+$duplicados = [];
+foreach ($filas as $f) {
+    $m = (int)round((float)$f['margen']);
+    if (isset($porMargen[$m])) {
+        $duplicados[$m][] = $f;
+    } else {
+        $porMargen[$m] = $f;
+    }
+}
+
+$base = $porMargen[MARGEN_BASE] ?? null;
+
+// Mantener el vínculo "deriva de" de las listas 10/15/25 apuntando siempre a
+// la base — en este esquema fijo no lo elige el usuario, se fuerza acá.
+// Es una escritura idempotente y liviana (a lo sumo 3 UPDATE) así que es
+// seguro correrla en cada carga de la página.
+if ($base) {
+    foreach (MARGENES_FIJOS as $m) {
+        if ($m === MARGEN_BASE || !isset($porMargen[$m])) continue;
+        $l = $porMargen[$m];
+        if ((int)($l['deriva_de_lista_id'] ?? 0) !== (int)$base['id'] || !empty($l['url_actualizacion'])) {
+            $db->prepare("UPDATE listas SET deriva_de_lista_id=?, url_actualizacion=NULL WHERE id=?")
+               ->execute([$base['id'], $l['id']]);
+            $porMargen[$m]['deriva_de_lista_id'] = $base['id'];
+            $porMargen[$m]['url_actualizacion']  = null;
+        }
+    }
+}
+
+$faltantes      = array_values(array_diff(MARGENES_FIJOS, array_keys($porMargen)));
+$puedeImportar  = $base && !empty($base['url_actualizacion']);
+
 $msg = $_GET['msg'] ?? '';
-$listasConUrl      = array_filter($listas, fn($l) => !empty($l['url_actualizacion']));
-$listasDerivadas   = array_filter($listas, fn($l) => empty($l['url_actualizacion']) && !empty($l['deriva_de_lista_id']));
-$listasImportables = $listasConUrl + $listasDerivadas;
-$listasPorId       = array_column($listas, null, 'id');
 
 require_once __DIR__ . '/../config/layout.php';
 ?>
 
 <?php if ($msg === 'updated'):        ?><div class="alert alert-success" data-autodismiss>Lista actualizada.</div><?php endif; ?>
 <?php if ($msg === 'duplicate'):      ?><div class="alert alert-danger"  data-autodismiss>Ya existe una lista con ese código.</div><?php endif; ?>
-<?php if ($msg === 'config_missing'): ?><div class="alert alert-warning" data-autodismiss>Configurá las URLs de las listas antes de importar.</div><?php endif; ?>
+<?php if ($msg === 'config_missing'): ?><div class="alert alert-warning" data-autodismiss>Configurá la URL de la lista base (20%) antes de importar.</div><?php endif; ?>
 <?php if ($msg === 'sin_cambios_pdf'): ?><div class="alert alert-warning" data-autodismiss>Esa lista no tiene datos para ese PDF (no hubo cambios de ese tipo en la última importación).</div><?php endif; ?>
+
+<?php if (!empty($duplicados)): ?>
+<div class="alert alert-warning" style="margin-bottom:16px;">
+    <strong>Atención:</strong> hay más de una lista con el mismo margen entre las fijas (10/15/20/25%) —
+    <?php foreach ($duplicados as $m => $dups): ?>
+        <?= $m ?>%: <?= implode(', ', array_map(fn($d) => e($d['codigo']), $dups)) ?>.
+    <?php endforeach; ?>
+    Sólo se usa la primera encontrada de cada margen; revisá esto directamente en la base si hace falta.
+</div>
+<?php endif; ?>
 
 <!-- Botón de importación global -->
 <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
     <a href="<?= BASE_PATH ?>/listas/importar.php"
-       class="btn btn-primary <?= empty($listasImportables) ? 'disabled' : '' ?>"
-       <?= empty($listasImportables) ? 'onclick="return false;" title=\'Configurá al menos una URL en las listas\'' : '' ?>>
+       class="btn btn-primary <?= !$puedeImportar ? 'disabled' : '' ?>"
+       <?= !$puedeImportar ? 'onclick="return false;" title=\'Configurá la URL de la lista base (20%)\'' : '' ?>>
         ↓ Importar precios desde proveedor
     </a>
     <span class="text-muted" style="font-size:12px;">
-        <?= count($listasImportables) ?> de <?= count($listas) ?> listas configuradas
-        (<?= count($listasConUrl) ?> con URL, <?= count($listasDerivadas) ?> derivadas)
+        <?= $puedeImportar ? 'Listo para importar — se actualizan las 4 listas (10/15/20/25%)' : 'Falta configurar la URL de la lista base' ?>
     </span>
     <a href="<?= BASE_PATH ?>/listas/verificar.php" class="btn btn-secondary btn-sm">Ver estado importación</a>
 </div>
 
+<?php if (!$base): ?>
+<!-- No existe todavía la lista base (20%) -->
+<div class="card" style="max-width:480px; margin-bottom:24px;">
+    <div class="card-header"><span class="card-title">Falta crear la lista base (20%)</span></div>
+    <div class="card-body">
+        <p style="font-size:13px; color:var(--text-soft); margin-bottom:14px;">
+            Todo el sistema de precios parte de una única lista con margen 20%. Creala primero
+            (después vas a cargarle la URL del proveedor acá mismo).
+        </p>
+        <form method="POST" action="<?= BASE_PATH ?>/listas/actions.php">
+            <input type="hidden" name="action" value="create">
+            <input type="hidden" name="margen" value="<?= MARGEN_BASE ?>">
+            <div class="form-group">
+                <label class="form-label">Código</label>
+                <input type="text" name="codigo" class="form-control" placeholder="ej: l20" required>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Crear lista del 20%</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php else: ?>
+
+<!-- Lista base — único lugar donde se carga la URL del proveedor -->
+<div class="card" style="max-width:640px; margin-bottom:24px;">
+    <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
+        <span class="card-title">Lista base <span class="text-muted" style="font-weight:400;">— 20%</span></span>
+        <span class="badge badge-bordo" style="font-size:14px;"><?= e($base['codigo']) ?></span>
+    </div>
+    <div class="card-body">
+        <p style="font-size:12.5px; color:var(--text-soft); margin-bottom:14px;">
+            De esta lista salen las otras 3 automáticamente: 20−10=<strong>10%</strong>,
+            20−5=<strong>15%</strong>, 20+5=<strong>25%</strong>.
+        </p>
+
+        <?php if ($base['ultima_actualizacion']): ?>
+        <div class="lista-stat" style="margin-bottom:12px;">
+            <span class="lista-stat-label">Última actualización del sistema</span>
+            <span style="font-size:12px; color:var(--success); font-weight:600;">
+                <?= date('d/m/Y', strtotime($base['ultima_actualizacion'])) ?> a las <?= date('H:i', strtotime($base['ultima_actualizacion'])) ?>
+            </span>
+        </div>
+        <?php else: ?>
+        <div style="font-size:12px; color:var(--text-soft); margin-bottom:12px;">Sin actualizaciones aún</div>
+        <?php endif; ?>
+
+        <?php if ($base['import_log_fecha']): ?>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;">
+            <a href="<?= BASE_PATH ?>/listas/exportar_cambios_pdf.php?lista_id=<?= $base['id'] ?>&origen=historial&modo=aumentos"
+               target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;">📈 PDF aumentos</a>
+            <a href="<?= BASE_PATH ?>/listas/exportar_cambios_pdf.php?lista_id=<?= $base['id'] ?>&origen=historial&modo=todos"
+               target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;">📊 PDF aumentos y bajas</a>
+        </div>
+        <?php endif; ?>
+
+        <form method="POST" action="<?= BASE_PATH ?>/listas/actions.php">
+            <input type="hidden" name="id" value="<?= $base['id'] ?>">
+            <input type="hidden" name="codigo" value="<?= e($base['codigo']) ?>">
+            <div class="form-group">
+                <label class="form-label">URL del proveedor</label>
+                <input type="url" name="url_actualizacion" class="form-control"
+                       value="<?= e($base['url_actualizacion'] ?? '') ?>"
+                       placeholder="https://…">
+            </div>
+            <div class="form-actions">
+                <button type="submit" name="action" value="update" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Listas derivadas — sólo informativas, no hay nada para configurar -->
 <div class="lista-cards-grid">
-<?php foreach ($listas as $l): ?>
+<?php foreach (MARGENES_FIJOS as $m):
+    if ($m === MARGEN_BASE) continue;
+    $l    = $porMargen[$m] ?? null;
+    $diff = $m - MARGEN_BASE; // -10, -5 o +5
+?>
+
+<?php if (!$l): ?>
+<div class="lista-card">
+    <div class="lista-card-header">
+        <span class="badge badge-gray" style="font-size:15px;">— sin crear —</span>
+        <span class="lista-margen"><?= $m ?>%</span>
+    </div>
+    <div class="lista-card-body">
+        <p style="font-size:12px; color:var(--text-soft); margin-bottom:12px;">
+            Falta crear la lista del <?= $m ?>%. Se va a calcular sola (base <?= $diff >= 0 ? '+' : '' ?><?= $diff ?>%)
+            en cuanto exista.
+        </p>
+        <form method="POST" action="<?= BASE_PATH ?>/listas/actions.php">
+            <input type="hidden" name="action" value="create">
+            <input type="hidden" name="margen" value="<?= $m ?>">
+            <div class="form-group">
+                <input type="text" name="codigo" class="form-control" placeholder="ej: l<?= $m ?>" required>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-secondary btn-sm">Crear lista del <?= $m ?>%</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php else: ?>
 <div class="lista-card">
     <div class="lista-card-header">
         <span class="badge badge-bordo" style="font-size:15px;"><?= e($l['codigo']) ?></span>
-        <span class="lista-margen"><?= $l['margen'] ?>%</span>
+        <span class="lista-margen"><?= $m ?>%</span>
     </div>
     <div class="lista-card-body">
-
-        <?php if (!empty($l['deriva_de_lista_id']) && isset($listasPorId[$l['deriva_de_lista_id']])):
-            $base = $listasPorId[$l['deriva_de_lista_id']];
-            $diff = $l['margen'] - $base['margen'];
-        ?>
         <div style="font-size:11px; color:var(--text-soft); margin-bottom:10px;">
-            Deriva de <strong><?= e($base['codigo']) ?></strong>
-            (<?= $diff >= 0 ? '+' : '' ?><?= number_format($diff, 2) ?>% sobre su precio)
+            Se calcula sola: base <?= $diff >= 0 ? '+' : '' ?><?= $diff ?>% sobre el precio de la lista del 20%.
         </div>
-        <?php endif; ?>
 
         <?php if ($l['ultima_actualizacion']): ?>
         <div class="lista-stat" style="margin-bottom:12px;">
@@ -70,82 +210,20 @@ require_once __DIR__ . '/../config/layout.php';
         <?php endif; ?>
 
         <?php if ($l['import_log_fecha']): ?>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;">
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <a href="<?= BASE_PATH ?>/listas/exportar_cambios_pdf.php?lista_id=<?= $l['id'] ?>&origen=historial&modo=aumentos"
-               target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;">
-                📈 PDF aumentos
-            </a>
+               target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;">📈 PDF aumentos</a>
             <a href="<?= BASE_PATH ?>/listas/exportar_cambios_pdf.php?lista_id=<?= $l['id'] ?>&origen=historial&modo=todos"
-               target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;">
-                📊 PDF aumentos y bajas
-            </a>
+               target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;">📊 PDF aumentos y bajas</a>
         </div>
         <?php endif; ?>
-
-        <form method="POST" action="<?= BASE_PATH ?>/listas/actions.php">
-            <input type="hidden" name="id" value="<?= $l['id'] ?>">
-            <div class="form-group">
-                <label class="form-label">Código</label>
-                <input type="text" name="codigo" class="form-control" value="<?= e($l['codigo']) ?>">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Margen</label>
-                <input type="text" class="form-control" value="<?= $l['margen'] ?>%"
-                       readonly style="background:var(--bg-soft); color:var(--text-soft); cursor:not-allowed;">
-            </div>
-            <div class="form-group">
-                <label class="form-label">URL del proveedor</label>
-                <input type="url" name="url_actualizacion" class="form-control"
-                       value="<?= e($l['url_actualizacion'] ?? '') ?>"
-                       placeholder="https://…"
-                       style="font-size:11px;">
-            </div>
-            <div class="form-group">
-                <label class="form-label">O deriva precios de otra lista</label>
-                <select name="deriva_de_lista_id" class="form-control" style="font-size:12px;">
-                    <option value="">— Ninguna (usa la URL de arriba) —</option>
-                    <?php foreach ($listas as $otra): if ($otra['id'] == $l['id']) continue; ?>
-                    <option value="<?= $otra['id'] ?>" <?= (int)($l['deriva_de_lista_id'] ?? 0) === (int)$otra['id'] ? 'selected' : '' ?>>
-                        <?= e($otra['codigo']) ?> (<?= $otra['margen'] ?>%)
-                    </option>
-                    <?php endforeach; ?>
-                </select>
-                <span class="text-muted" style="font-size:11px;">
-                    El precio se calcula como el de esa lista ± la diferencia de margen.
-                </span>
-            </div>
-            <div class="form-actions">
-                <button type="submit" name="action" value="update" class="btn btn-secondary btn-sm">
-                    Guardar
-                </button>
-            </div>
-        </form>
     </div>
 </div>
+<?php endif; ?>
+
 <?php endforeach; ?>
 </div>
 
-<div class="card" style="max-width:420px; margin-top:24px;">
-    <div class="card-header"><span class="card-title">Nueva lista</span></div>
-    <div class="card-body">
-        <form method="POST" action="<?= BASE_PATH ?>/listas/actions.php">
-            <input type="hidden" name="action" value="create">
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Código</label>
-                    <input type="text" name="codigo" class="form-control" placeholder="ej: l80" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Margen (%)</label>
-                    <input type="number" name="margen" class="form-control" min="0" max="100"
-                           step="0.01" placeholder="30" required>
-                </div>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Crear lista</button>
-            </div>
-        </form>
-    </div>
-</div>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/../config/layout_end.php'; ?>

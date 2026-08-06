@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $db->prepare("UPDATE productos SET codigo=?, nombre=?, marca=?, unidades_por_caja=?, precio_por_pack=?, contenido=?, descripcion=?, categoria=?, costo_compra=? WHERE id=?");
             $stmt->execute([$codigo, $nombre, $marca, $unidades_por_caja, $precio_por_pack, $contenido, $descripcion, $categoria ?: null, $costoBase > 0 ? $costoBase : null, $id]);
         } else {
-            $stmt = $db->prepare("INSERT INTO productos (codigo, nombre, marca, unidades_por_caja, precio_por_pack, contenido, descripcion, categoria, costo_compra) VALUES (?,?,?,?,?,?,?,?,?)");
+            $stmt = $db->prepare("INSERT INTO productos (codigo, nombre, marca, unidades_por_caja, precio_por_pack, contenido, descripcion, categoria, costo_compra, origen) VALUES (?,?,?,?,?,?,?,?,?,'manual')");
             $stmt->execute([$codigo, $nombre, $marca, $unidades_por_caja, $precio_por_pack, $contenido, $descripcion, $categoria ?: null, $costoBase > 0 ? $costoBase : null]);
             $id = (int)$db->lastInsertId();
         }
