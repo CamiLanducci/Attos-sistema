@@ -209,7 +209,7 @@ if (!$isPost && $step === 'preview') {
         curl_setopt_array($ch, [
             CURLOPT_URL            => $urlDescarga,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_TIMEOUT        => 120,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS      => 5,
             CURLOPT_SSL_VERIFYPEER => false,
