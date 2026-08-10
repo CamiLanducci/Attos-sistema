@@ -41,7 +41,9 @@
       "Bash(where php *)",
       "Bash(git checkout *)",
       "Bash(find /c -maxdepth 2 -iname \"xampp*\")",
-      "Bash(find /d -maxdepth 2 -iname \"xampp*\")"
+      "Bash(find /d -maxdepth 2 -iname \"xampp*\")",
+      "Read(//tmp/**)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/tmp/raw2.json'\\)\\); print\\('estado:', d.get\\('estado'\\)\\); print\\('bodegas:', len\\(d.get\\('bodegas',[]\\)\\)\\)\")"
     ]
   }
 }
