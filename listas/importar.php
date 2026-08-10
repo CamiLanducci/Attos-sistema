@@ -216,13 +216,27 @@ if (!$isPost && $step === 'preview') {
             CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
             CURLOPT_HTTPHEADER     => ['Accept: application/json, text/html, */*'],
         ]);
-        $raw      = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr  = curl_error($ch);
+        $raw       = curl_exec($ch);
+        $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr   = curl_error($ch);
+        $curlErrno = curl_errno($ch);
+        $timing    = curl_getinfo($ch); // namelookup_time, connect_time, starttransfer_time, total_time, etc.
         curl_close($ch);
 
         if ($raw === false || ($httpCode !== 200 && $httpCode !== 429 && $httpCode !== 410)) {
-            echo "  ✗ HTTP {$httpCode}: {$curlErr}\n";
+            echo "  ✗ HTTP {$httpCode}: {$curlErr} (errno {$curlErrno})\n";
+            if ($curlErr !== '') {
+                // Desglose de tiempos para saber en qué fase se cortó: si namelookup/connect
+                // son altos es un problema de red/DNS; si total_time llega al límite con
+                // connect_time bajo, el proveedor abrió la conexión pero no mandó respuesta.
+                echo sprintf(
+                    "     dns=%.1fs connect=%.1fs primera_respuesta=%.1fs total=%.1fs\n",
+                    $timing['namelookup_time'] ?? 0,
+                    $timing['connect_time'] ?? 0,
+                    $timing['starttransfer_time'] ?? 0,
+                    $timing['total_time'] ?? 0
+                );
+            }
             flush();
             $previewData[$listaId] = ['error' => "HTTP {$httpCode}: {$curlErr}", 'lista' => $lista];
             continue;
