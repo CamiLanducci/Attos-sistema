@@ -42,11 +42,20 @@ if (!$isPost && $step === 'confirm') {
                 Las listas derivadas se calculan a partir de otra lista, ajustando el precio
                 según la diferencia de margen. El sistema mostrará todos los cambios antes de guardarlos.
             </p>
+            <?php if (!empty($listasBase)): ?>
+            <p style="font-size:12px; color:var(--text-soft); margin-bottom:10px;">
+                Si a alguna lista base no se le puede descargar el catálogo automáticamente
+                (ej. el proveedor bloquea al servidor), podés abrir el link vos mismo, guardar
+                la página o el JSON, y subirlo acá como respaldo — se procesa igual que la descarga automática.
+            </p>
+            <?php endif; ?>
+            <form method="POST" enctype="multipart/form-data" action="?step=preview">
             <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:20px;">
                 <thead>
                     <tr style="border-bottom:2px solid var(--border);">
                         <th style="padding:6px 8px; text-align:left;">Lista</th>
                         <th style="padding:6px 8px; text-align:left;">Origen</th>
+                        <th style="padding:6px 8px; text-align:left;">Archivo manual (opcional)</th>
                         <th style="padding:6px 8px; text-align:center;">Estado</th>
                     </tr>
                 </thead>
@@ -75,6 +84,14 @@ if (!$isPost && $step === 'confirm') {
                             <span class="text-muted" style="font-size:11px;">Sin URL ni lista base — se omite</span>
                         <?php endif; ?>
                     </td>
+                    <td style="padding:6px 8px;">
+                        <?php if ($esBase): ?>
+                        <input type="file" name="archivo_manual[<?= (int)$l['id'] ?>]"
+                               accept=".json,.html,.htm,.txt" style="font-size:11px; max-width:220px;">
+                        <?php else: ?>
+                        <span class="text-muted" style="font-size:11px;">—</span>
+                        <?php endif; ?>
+                    </td>
                     <td style="padding:6px 8px; text-align:center;">
                         <?php if ($seImporta): ?>
                             <span class="badge badge-success">✓ importar</span>
@@ -93,12 +110,13 @@ if (!$isPost && $step === 'confirm') {
             <a href="<?= BASE_PATH ?>/listas/" class="btn btn-secondary">← Volver a Listas</a>
             <?php else: ?>
             <div class="form-actions">
-                <a href="?step=preview" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary">
                     ↓ Ver cambios de <?= count($listas) ?> lista<?= count($listas) !== 1 ? 's' : '' ?>
-                </a>
+                </button>
                 <a href="<?= BASE_PATH ?>/listas/" class="btn btn-secondary">Cancelar</a>
             </div>
             <?php endif; ?>
+            </form>
         </div>
     </div>
     <?php
@@ -109,7 +127,7 @@ if (!$isPost && $step === 'confirm') {
 // ══════════════════════════════════════════════════════════════════════════════
 // PASO 2 — Descargar, comparar y mostrar preview
 // ══════════════════════════════════════════════════════════════════════════════
-if (!$isPost && $step === 'preview') {
+if ($step === 'preview' && ($_POST['step'] ?? '') !== 'apply') {
     if (empty($listas)) redirect(BASE_PATH . '/listas/?msg=config_missing');
 
     // Enviar el layout y arrancar a imprimir progreso YA — si nos quedamos mudos
@@ -198,6 +216,49 @@ if (!$isPost && $step === 'preview') {
     // ── Listas base: se descargan y parsean del proveedor ─────────────────
     foreach ($listasBase as $lista) {
         $listaId = (int)$lista['id'];
+
+        // Archivo subido manualmente para esta lista (respaldo cuando el proveedor
+        // bloquea/no responde al servidor): se parsea igual que la descarga automática.
+        $archivoTmp = $_FILES['archivo_manual']['tmp_name'][$listaId] ?? null;
+        $tieneArchivoManual = $isPost && $archivoTmp && is_uploaded_file($archivoTmp)
+            && ($_FILES['archivo_manual']['size'][$listaId] ?? 0) > 0;
+
+        if ($tieneArchivoManual) {
+            echo "Usando archivo subido manualmente para lista {$lista['codigo']}...\n";
+            flush();
+
+            $raw       = file_get_contents($archivoTmp);
+            $productos = [];
+            $errorMsg  = null;
+
+            $json = json_decode((string)$raw, true);
+            if (is_array($json) && isset($json['bodegas'])) {
+                $estado = $json['estado'] ?? null;
+                if ($estado !== null && $estado !== 'vigente') {
+                    $errorMsg = 'El archivo subido indica un catálogo vencido o no vigente';
+                } else {
+                    $productos = parsearJSONCatalogoProveedor($json);
+                    if (empty($productos)) $errorMsg = 'No se encontraron productos en el JSON subido';
+                }
+            } else {
+                $productos = parsearHTMLProveedor((string)$raw);
+                if (empty($productos)) $errorMsg = 'No se encontraron productos ni en JSON ni en HTML del archivo subido';
+            }
+
+            if ($errorMsg !== null) {
+                echo "  ✗ {$errorMsg}\n";
+                flush();
+                $previewData[$listaId] = ['error' => $errorMsg, 'lista' => $lista];
+                continue;
+            }
+
+            $previewData[$listaId] = $construirPreviewLista($lista, $productos);
+
+            echo "  ✓ " . count($productos) . " productos: " . count($previewData[$listaId]['changes']) . " cambios, "
+               . count($previewData[$listaId]['new_prods']) . " nuevos, {$previewData[$listaId]['unchanged']} sin cambio\n";
+            flush();
+            continue;
+        }
 
         echo "Descargando lista {$lista['codigo']}...\n";
         flush();
