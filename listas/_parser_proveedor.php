@@ -208,19 +208,35 @@ function _lp_pdfAscii85Decode(string $data): string {
  * probando FlateDecode directo y ASCII85Decode+FlateDecode (ambos usados por
  * distintos generadores de PDF). Streams que no descomprimen o no contienen
  * operadores de texto (Tj) se ignoran (son imágenes, fuentes embebidas, etc).
+ *
+ * Los streams de imágenes/fuentes embebidas pueden pesar varios MB — sin
+ * límite, intentar descomprimirlos (y tokenizar el resultado) puede tardar
+ * minutos o agotar memory_limit, dejando la importación "colgada" sin ningún
+ * output. Por eso se descartan de entrada los streams demasiado grandes para
+ * ser texto y se acota el tamaño de salida de gzuncompress.
  */
 function _lp_pdfExtraerContenido(string $pdfBytes): string {
+    $maxRawStreamBytes     = 2 * 1024 * 1024; // streams de texto reales no llegan a esto
+    $maxDecodedStreamBytes = 4 * 1024 * 1024; // límite pasado a gzuncompress()
+
     $contenido = '';
     $offset    = 0;
     while (preg_match('/(?<!d)stream\r?\n/', $pdfBytes, $m, PREG_OFFSET_CAPTURE, $offset)) {
         $start = $m[0][1] + strlen($m[0][0]);
         $end   = strpos($pdfBytes, 'endstream', $start);
         if ($end === false) break;
+
+        if ($end - $start > $maxRawStreamBytes) {
+            // Casi seguro una imagen o fuente embebida: se salta sin descomprimir.
+            $offset = $end + 9;
+            continue;
+        }
+
         $raw = rtrim(substr($pdfBytes, $start, $end - $start), "\r\n");
 
-        $decoded = @gzuncompress($raw);
+        $decoded = @gzuncompress($raw, $maxDecodedStreamBytes);
         if ($decoded === false) {
-            $decoded = @gzuncompress(_lp_pdfAscii85Decode($raw));
+            $decoded = @gzuncompress(_lp_pdfAscii85Decode($raw), $maxDecodedStreamBytes);
         }
         if ($decoded !== false && strpos($decoded, 'Tj') !== false) {
             $contenido .= $decoded . "\n";
