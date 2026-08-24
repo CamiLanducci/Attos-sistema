@@ -45,6 +45,17 @@ require_once __DIR__ . '/../config/layout.php';
             </div>
 
             <div class="form-group">
+                <label class="form-label">Medio de pago *</label>
+                <select name="medio_pago" class="form-control" required>
+                    <option value="efectivo">💵 Efectivo</option>
+                    <option value="transferencia">💳 Transferencia</option>
+                </select>
+                <div class="text-muted" style="font-size:12px; margin-top:4px;">
+                    Se descuenta de tu caja (efectivo o transferencia) además de registrarse acá.
+                </div>
+            </div>
+
+            <div class="form-group">
                 <label class="form-label">Descripción</label>
                 <input type="text" name="descripcion" id="desc-input" class="form-control"
                        placeholder="Pago a …" maxlength="500">

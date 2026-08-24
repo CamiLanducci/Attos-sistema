@@ -9,10 +9,11 @@ $action = $_POST['action'] ?? ($_GET['action'] ?? '');
 
 // ── Op 3: Registrar pago a galpón / Alfre ────────────────────────────────────
 if ($action === 'pago') {
-    $cuenta = in_array($_POST['cuenta'] ?? '', ['area_520','alfre']) ? $_POST['cuenta'] : null;
-    $monto  = max(0.0, (float)str_replace(',', '.', $_POST['monto'] ?? '0'));
-    $fecha  = $_POST['fecha']       ?? date('Y-m-d');
-    $desc   = trim($_POST['descripcion'] ?? 'Pago a ' . ($cuenta ?? ''));
+    $cuenta    = in_array($_POST['cuenta'] ?? '', ['area_520','alfre']) ? $_POST['cuenta'] : null;
+    $monto     = max(0.0, (float)str_replace(',', '.', $_POST['monto'] ?? '0'));
+    $fecha     = $_POST['fecha']       ?? date('Y-m-d');
+    $desc      = trim($_POST['descripcion'] ?? 'Pago a ' . ($cuenta ?? ''));
+    $medioPago = in_array($_POST['medio_pago'] ?? '', ['efectivo','transferencia']) ? $_POST['medio_pago'] : 'efectivo';
 
     if (!$cuenta || $monto <= 0) {
         redirect(BASE_PATH . '/cuentas/pago.php?msg=error');
@@ -38,6 +39,14 @@ if ($action === 'pago') {
 
         // Cruzar referencias
         $db->prepare("UPDATE movimientos_cuenta SET movimiento_par_id=? WHERE id=?")->execute([$idB, $idA]);
+
+        // Egreso en caja_movimientos: esta plata realmente sale de la caja del
+        // usuario (efectivo o transferencia) — antes este pago sólo se veía
+        // reflejado en movimientos_cuenta, nunca se descontaba de /caja/.
+        $db->prepare("
+            INSERT INTO caja_movimientos (tipo, concepto, medio_pago, monto, descripcion, usuario_id)
+            VALUES ('egreso', 'pago_proveedor', ?, ?, ?, ?)
+        ")->execute([$medioPago, $monto, $desc, $_SESSION['usuario_id']]);
 
         $db->commit();
         redirect(BASE_PATH . '/cuentas/?msg=pago_ok');
