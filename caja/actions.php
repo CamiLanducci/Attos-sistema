@@ -11,8 +11,19 @@ function medioPago(): string {
     $v = $_POST['medio_pago'] ?? 'efectivo';
     return in_array($v, ['efectivo','transferencia']) ? $v : 'efectivo';
 }
+// Convierte texto de un input a número. Soporta tanto "1.500,00" (formato
+// argentino, con punto de miles) como "1500.50" (inputs type="number", que el
+// navegador siempre manda con punto decimal y sin separador de miles) — antes
+// esto trataba la coma como decimal SIN sacar el punto de miles primero, así
+// que "1.500,00" quedaba "1.500.00" y el cast a float lo truncaba en "1.5".
 function montoPost(string $key): float {
-    return max(0.0, (float)str_replace([',', ' '], ['.', ''], $_POST[$key] ?? '0'));
+    $raw = trim(str_replace(' ', '', $_POST[$key] ?? '0'));
+    if ($raw === '') return 0.0;
+    if (strpos($raw, ',') !== false) {
+        $raw = str_replace('.', '', $raw);  // saca separador de miles (si hay)
+        $raw = str_replace(',', '.', $raw); // coma decimal -> punto
+    }
+    return max(0.0, (float)$raw);
 }
 
 // ── Pago proveedor ────────────────────────────────────────────
