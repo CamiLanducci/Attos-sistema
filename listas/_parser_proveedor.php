@@ -308,8 +308,16 @@ function _lp_pdfDecodeStr(string $raw): string {
         }
         $bytes .= $c;
     }
-    $utf8 = @iconv('ISO-8859-1', 'UTF-8//IGNORE', $bytes);
-    return $utf8 !== false ? $utf8 : $bytes;
+    // Conversión manual Latin-1 -> UTF-8 (sin depender de la extensión iconv,
+    // que no siempre está instalada): todo byte 0x00-0xFF de Latin-1 mapea
+    // directo al mismo codepoint Unicode, así que la codificación UTF-8 es
+    // mecánica (1 byte si <0x80, 2 bytes si no).
+    $utf8 = '';
+    foreach (str_split($bytes) as $b) {
+        $o = ord($b);
+        $utf8 .= $o < 0x80 ? $b : chr(0xC0 | ($o >> 6)) . chr(0x80 | ($o & 0x3F));
+    }
+    return $utf8;
 }
 
 /**

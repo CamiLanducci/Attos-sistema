@@ -39,7 +39,7 @@ if (!$isPost && $step === 'confirm') {
     $topbarActions = '<a href="' . BASE_PATH . '/listas/" class="btn btn-secondary">← Volver</a>';
     require_once __DIR__ . '/../config/layout.php';
     ?>
-    <div class="card" style="max-width:680px;">
+    <div class="card">
         <div class="card-header"><span class="card-title">Confirmar importación</span></div>
         <div class="card-body">
             <p style="font-size:13px; color:var(--text-soft); margin-bottom:16px;">
@@ -48,20 +48,21 @@ if (!$isPost && $step === 'confirm') {
                 según la diferencia de margen. El sistema mostrará todos los cambios antes de guardarlos.
             </p>
             <?php if (!empty($listasBase)): ?>
-            <p style="font-size:12px; color:var(--text-soft); margin-bottom:10px;">
+            <p style="font-size:12px; color:var(--text-soft); margin-bottom:16px;">
                 Si a alguna lista base no se le puede descargar el catálogo automáticamente
                 (ej. el proveedor bloquea al servidor), podés abrir el link vos mismo, guardar
                 la página, el JSON o el PDF, y subirlo acá como respaldo — se procesa igual que la descarga automática.
             </p>
             <?php endif; ?>
             <form method="POST" enctype="multipart/form-data" action="?step=preview">
-            <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:20px;">
+            <div class="table-wrap" style="margin-bottom:20px;">
+            <table>
                 <thead>
-                    <tr style="border-bottom:2px solid var(--border);">
-                        <th style="padding:6px 8px; text-align:left;">Lista</th>
-                        <th style="padding:6px 8px; text-align:left;">Origen</th>
-                        <th style="padding:6px 8px; text-align:left;">Archivo manual (opcional)</th>
-                        <th style="padding:6px 8px; text-align:center;">Estado</th>
+                    <tr>
+                        <th style="width:130px;">Lista</th>
+                        <th>Origen</th>
+                        <th style="width:260px;">Archivo manual (opcional)</th>
+                        <th style="width:100px; text-align:center;">Estado</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -70,12 +71,12 @@ if (!$isPost && $step === 'confirm') {
                     $baseDeriv  = !$esBase && !empty($l['deriva_de_lista_id']) ? ($listasPorId[$l['deriva_de_lista_id']] ?? null) : null;
                     $seImporta  = $esBase || $baseDeriv;
                 ?>
-                <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:6px 8px;">
+                <tr>
+                    <td>
                         <strong><?= e($l['codigo']) ?></strong>
                         <span class="text-muted" style="font-size:11px;">(<?= $l['margen'] ?>%)</span>
                     </td>
-                    <td style="padding:6px 8px; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <td style="max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                         <?php if ($esBase): ?>
                             <span style="font-size:11px; color:var(--text-soft);" title="<?= e($l['url_actualizacion']) ?>">
                                 <?= e(substr($l['url_actualizacion'], 0, 60)) ?>…
@@ -89,15 +90,15 @@ if (!$isPost && $step === 'confirm') {
                             <span class="text-muted" style="font-size:11px;">Sin URL ni lista base — se omite</span>
                         <?php endif; ?>
                     </td>
-                    <td style="padding:6px 8px;">
+                    <td>
                         <?php if ($esBase): ?>
                         <input type="file" name="archivo_manual[<?= (int)$l['id'] ?>]"
-                               accept=".json,.html,.htm,.txt,.pdf" style="font-size:11px; max-width:220px;">
+                               accept=".json,.html,.htm,.txt,.pdf" style="font-size:11px; width:100%;">
                         <?php else: ?>
                         <span class="text-muted" style="font-size:11px;">—</span>
                         <?php endif; ?>
                     </td>
-                    <td style="padding:6px 8px; text-align:center;">
+                    <td style="text-align:center;">
                         <?php if ($seImporta): ?>
                             <span class="badge badge-success">✓ importar</span>
                         <?php else: ?>
@@ -108,6 +109,7 @@ if (!$isPost && $step === 'confirm') {
                 <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
             <?php if (empty($listas)): ?>
             <div class="alert" style="background:#fef3cd; color:#856404; padding:10px 14px; border-radius:4px; margin-bottom:16px; font-size:13px;">
                 Ninguna lista tiene URL ni lista base configurada. Configurá las listas antes de importar.
