@@ -231,7 +231,7 @@ if ($step === 'preview' && ($_POST['step'] ?? '') !== 'apply') {
             && ($_FILES['archivo_manual']['size'][$listaId] ?? 0) > 0;
 
         if ($tieneArchivoManual) {
-            echo "Usando archivo subido manualmente para lista {$lista['codigo']}...\n";
+            echo "Analizando el archivo pdf subido manualmente para lista {$lista['codigo']}...\n";
             flush();
 
             $raw       = file_get_contents($archivoTmp);
