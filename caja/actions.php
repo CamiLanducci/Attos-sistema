@@ -82,15 +82,36 @@ if ($action === 'gasto') {
     redirect(BASE_PATH . '/caja/?msg=ok');
 }
 
-// ── Mi saldo inicial (por usuario) ─────────────────────────────
+// ── Fijar mi saldo actual (por usuario) ─────────────────────────
+// El formulario pide "cuánto tenés ahora", no el saldo inicial técnico —
+// así que acá se hace la cuenta al revés: se guarda como saldo inicial lo que
+// haga falta para que inicial + movimientos ya cargados = el monto que puso
+// el usuario. Puede dar un saldo inicial negativo, y es correcto (compensa
+// movimientos que ya estaban de más).
 if ($action === 'mi_saldo_inicial') {
-    $efectivo      = montoPost('efectivo');
-    $transferencia = montoPost('transferencia');
+    $miId              = (int)$_SESSION['usuario_id'];
+    $efectivoDeseado      = montoPost('efectivo');
+    $transferenciaDeseada = montoPost('transferencia');
+
+    $mov = $db->prepare("
+        SELECT
+            COALESCE(SUM(CASE WHEN medio_pago='efectivo'      AND tipo='ingreso' THEN monto
+                              WHEN medio_pago='efectivo'      AND tipo='egreso'  THEN -monto ELSE 0 END), 0) AS efectivo,
+            COALESCE(SUM(CASE WHEN medio_pago='transferencia' AND tipo='ingreso' THEN monto
+                              WHEN medio_pago='transferencia' AND tipo='egreso'  THEN -monto ELSE 0 END), 0) AS transferencia
+        FROM caja_movimientos WHERE usuario_id = ?
+    ");
+    $mov->execute([$miId]);
+    $mov = $mov->fetch() ?: ['efectivo' => 0, 'transferencia' => 0];
+
+    $efectivo      = $efectivoDeseado      - (float)$mov['efectivo'];
+    $transferencia = $transferenciaDeseada - (float)$mov['transferencia'];
+
     $db->prepare("
         INSERT INTO caja_saldo_inicial_usuario (usuario_id, efectivo, transferencia)
         VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE efectivo=VALUES(efectivo), transferencia=VALUES(transferencia)
-    ")->execute([$_SESSION['usuario_id'], $efectivo, $transferencia]);
+    ")->execute([$miId, $efectivo, $transferencia]);
     redirect(BASE_PATH . '/caja/?msg=mi_saldo_ok');
 }
 

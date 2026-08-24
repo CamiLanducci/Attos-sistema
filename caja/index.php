@@ -221,22 +221,20 @@ $cuentaLabel = ['area_520' => 'Area 520', 'alfre' => 'Cuenta Alfre'];
 <!-- ── Mi caja ──────────────────────────────────────────────────── -->
 <div id="caja-tab-mi-caja">
 
-    <!-- DEBUG TEMPORAL: sacar una vez resuelto el problema del saldo inicial -->
-    <div style="font-family:monospace; font-size:11px; background:#fff3cd; border:1px solid #e0c060; padding:8px 12px; margin-bottom:12px; border-radius:4px;">
-        DEBUG — miId=<?= $miId ?> |
-        saldoIniUsuarios tiene <?= count($saldoIniUsuarios) ?> fila(s): <?= e(json_encode($saldoIniUsuarios)) ?> |
-        miIni=<?= e(json_encode($miIni)) ?> |
-        miMov=<?= e(json_encode($miMov)) ?>
-    </div>
-
     <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:16px; max-width:560px;">
         <div class="card" style="text-align:center; padding:18px 10px;">
             <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:6px;">💵 Mi efectivo</div>
             <div style="font-size:24px; font-weight:800; color:<?= $miEfectivo >= 0 ? '#27ae60' : '#c0392b' ?>;"><?= precio($miEfectivo) ?></div>
+            <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">
+                Inicial: <?= precio((float)$miIni['efectivo']) ?> + movimientos: <?= precio((float)$miMov['efectivo']) ?>
+            </div>
         </div>
         <div class="card" style="text-align:center; padding:18px 10px;">
             <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:6px;">💳 Mi transferencia</div>
             <div style="font-size:24px; font-weight:800; color:<?= $miTransferencia >= 0 ? '#2980b9' : '#c0392b' ?>;"><?= precio($miTransferencia) ?></div>
+            <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">
+                Inicial: <?= precio((float)$miIni['transferencia']) ?> + movimientos: <?= precio((float)$miMov['transferencia']) ?>
+            </div>
         </div>
     </div>
 
@@ -402,7 +400,7 @@ $cuentaLabel = ['area_520' => 'Area 520', 'alfre' => 'Cuenta Alfre'];
 
     <div style="display:flex; gap:8px; margin-bottom:16px;">
         <button onclick="toggleArqueoForm()" class="btn btn-outline btn-sm">🔎 Hacer arqueo</button>
-        <button onclick="toggleMiSaldoForm()" class="btn btn-outline btn-sm">⚙️ Configurar mi saldo inicial</button>
+        <button onclick="toggleMiSaldoForm()" class="btn btn-outline btn-sm">⚙️ Fijar mi saldo actual</button>
     </div>
 
     <div id="arqueo-form" style="display:none; margin-bottom:16px;">
@@ -438,20 +436,25 @@ $cuentaLabel = ['area_520' => 'Area 520', 'alfre' => 'Cuenta Alfre'];
 
     <div id="mi-saldo-form" style="display:none; margin-bottom:16px;">
         <div class="card" style="max-width:560px;">
-            <div class="card-header"><span class="card-title">Mi saldo inicial</span></div>
+            <div class="card-header"><span class="card-title">Fijar mi saldo actual</span></div>
             <div class="card-body">
+                <p style="font-size:12px; color:var(--text-soft); margin-bottom:12px;">
+                    Poné cuánto tenés <strong>ahora mismo</strong> — el sistema ajusta el punto de partida
+                    para que tu total te quede exactamente en ese monto (ya tiene en cuenta los movimientos
+                    que ya cargaste).
+                </p>
                 <form method="POST" action="<?= BASE_PATH ?>/caja/actions.php">
                     <input type="hidden" name="action" value="mi_saldo_inicial">
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label">💵 Efectivo inicial ($)</label>
+                            <label class="form-label">💵 Efectivo que tenés ahora ($)</label>
                             <input type="text" name="efectivo" class="form-control"
-                                   value="<?= number_format((float)$miIni['efectivo'], 2, ',', '.') ?>">
+                                   value="<?= number_format($miEfectivo, 2, ',', '.') ?>">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">💳 Transferencia inicial ($)</label>
+                            <label class="form-label">💳 Transferencia que tenés ahora ($)</label>
                             <input type="text" name="transferencia" class="form-control"
-                                   value="<?= number_format((float)$miIni['transferencia'], 2, ',', '.') ?>">
+                                   value="<?= number_format($miTransferencia, 2, ',', '.') ?>">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Guardar</button>
