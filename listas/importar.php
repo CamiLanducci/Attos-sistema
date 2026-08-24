@@ -244,9 +244,18 @@ if ($step === 'preview' && ($_POST['step'] ?? '') !== 'apply') {
             // ve el motivo en vez de quedar la página muda en "Analizando...".
             try {
                 if (substr((string)$raw, 0, 5) === '%PDF-') {
-                    echo "  (PDF detectado, " . strlen($raw) . " bytes, extrayendo contenido...)\n";
+                    echo "  (PDF detectado, " . strlen($raw) . " bytes)\n";
                     flush();
-                    $productos = parsearPDFCatalogoProveedor((string)$raw);
+                    $tParse = microtime(true);
+                    $productos = parsearPDFCatalogoProveedor((string)$raw, function(string $etapa, array $datos) use (&$tParse) {
+                        $ahora = microtime(true);
+                        $extra = [];
+                        foreach ($datos as $k => $v) $extra[] = "{$k}={$v}";
+                        echo "    [" . number_format(($ahora - $tParse) * 1000, 0) . "ms] {$etapa}"
+                            . ($extra ? ' (' . implode(', ', $extra) . ')' : '') . "\n";
+                        flush();
+                        $tParse = $ahora;
+                    });
                     if (empty($productos)) $errorMsg = 'No se encontraron productos en el PDF subido';
                 } else {
                     $json = json_decode((string)$raw, true);

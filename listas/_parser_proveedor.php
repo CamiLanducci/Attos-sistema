@@ -417,8 +417,18 @@ function _lp_pdfCeldas(array $tokens): array {
  * ese orden fijo. Frágil ante un cambio de plantilla del proveedor: si deja
  * de encontrar productos, revisar si cambiaron fuente/tamaño/orden de columnas.
  */
-function parsearPDFCatalogoProveedor(string $pdfBytes): array {
+/**
+ * $onProgress (opcional) se llama entre cada etapa con una descripción corta
+ * y datos de tamaño — pensado para que el caller pueda hacer echo+flush()
+ * y así diagnosticar en qué etapa se traba si algo tarda mucho (agregado
+ * porque una importación se quedaba "colgada" sin rastro de en qué paso).
+ */
+function parsearPDFCatalogoProveedor(string $pdfBytes, ?callable $onProgress = null): array {
+    $onProgress ??= function() {};
+
+    $onProgress('extrayendo streams', ['pdf_bytes' => strlen($pdfBytes)]);
     $contenido = _lp_pdfExtraerContenido($pdfBytes);
+    $onProgress('streams extraídos', ['contenido_bytes' => strlen($contenido)]);
     if ($contenido === '') return [];
 
     // Tope defensivo: un catálogo real, ya filtrado a sólo streams de texto,
@@ -429,8 +439,12 @@ function parsearPDFCatalogoProveedor(string $pdfBytes): array {
         $contenido = substr($contenido, 0, 10 * 1024 * 1024);
     }
 
+    $onProgress('tokenizando', []);
     $tokens = _lp_pdfTokenizar($contenido);
+    $onProgress('tokenizado', ['tokens' => count($tokens)]);
+
     $celdas = _lp_pdfCeldas($tokens);
+    $onProgress('celdas armadas', ['celdas' => count($celdas)]);
 
     $productos    = [];
     $marcaActual  = 'SIN MARCA';
