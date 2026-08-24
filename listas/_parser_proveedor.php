@@ -165,3 +165,259 @@ function parsearJSONCatalogoProveedor(array $data): array {
 
     return $productos;
 }
+
+/**
+ * Decodifica un stream ASCII85 (delimitado sin '<~', puede terminar en '~>').
+ * Usado porque el catálogo PDF de aqv.soysowi.com comprime sus content
+ * streams con /Filter [ /ASCII85Decode /FlateDecode ].
+ */
+function _lp_pdfAscii85Decode(string $data): string {
+    $s = preg_replace('/\s+/', '', $data);
+    if (substr($s, -2) === '~>') $s = substr($s, 0, -2);
+
+    $out   = '';
+    $group = [];
+    $len   = strlen($s);
+    for ($i = 0; $i < $len; $i++) {
+        $c = $s[$i];
+        if ($c === 'z' && empty($group)) {
+            $out .= "\x00\x00\x00\x00";
+            continue;
+        }
+        $group[] = ord($c) - 33;
+        if (count($group) === 5) {
+            $val = 0;
+            foreach ($group as $g) $val = $val * 85 + $g;
+            $out  .= pack('N', $val);
+            $group = [];
+        }
+    }
+    if (!empty($group)) {
+        $n = count($group);
+        while (count($group) < 5) $group[] = 84;
+        $val = 0;
+        foreach ($group as $g) $val = $val * 85 + $g;
+        $bytes = pack('N', $val);
+        $out  .= substr($bytes, 0, $n - 1);
+    }
+    return $out;
+}
+
+/**
+ * Extrae y concatena todos los content streams de texto de un PDF (páginas),
+ * probando FlateDecode directo y ASCII85Decode+FlateDecode (ambos usados por
+ * distintos generadores de PDF). Streams que no descomprimen o no contienen
+ * operadores de texto (Tj) se ignoran (son imágenes, fuentes embebidas, etc).
+ */
+function _lp_pdfExtraerContenido(string $pdfBytes): string {
+    $contenido = '';
+    $offset    = 0;
+    while (preg_match('/(?<!d)stream\r?\n/', $pdfBytes, $m, PREG_OFFSET_CAPTURE, $offset)) {
+        $start = $m[0][1] + strlen($m[0][0]);
+        $end   = strpos($pdfBytes, 'endstream', $start);
+        if ($end === false) break;
+        $raw = rtrim(substr($pdfBytes, $start, $end - $start), "\r\n");
+
+        $decoded = @gzuncompress($raw);
+        if ($decoded === false) {
+            $decoded = @gzuncompress(_lp_pdfAscii85Decode($raw));
+        }
+        if ($decoded !== false && strpos($decoded, 'Tj') !== false) {
+            $contenido .= $decoded . "\n";
+        }
+
+        $offset = $end + 9; // len('endstream')
+    }
+    return $contenido;
+}
+
+/**
+ * Tokeniza un content stream PDF: strings (...), nombres /Foo, números y
+ * operadores sueltos (q, Q, cm, rg, Tf, Tj, etc). Suficiente para el
+ * subconjunto de operadores que generan las tablas de precios — no es un
+ * intérprete PDF completo (ignora arrays TJ, dicts, matrices no triviales).
+ */
+function _lp_pdfTokenizar(string $s): array {
+    $tokens = [];
+    $n      = strlen($s);
+    $i      = 0;
+    while ($i < $n) {
+        $c = $s[$i];
+        if ($c === ' ' || $c === "\n" || $c === "\r" || $c === "\t") { $i++; continue; }
+
+        if ($c === '(') {
+            $depth = 1; $j = $i + 1; $buf = '';
+            while ($j < $n && $depth > 0) {
+                $cj = $s[$j];
+                if ($cj === '\\') { $buf .= $cj . ($s[$j + 1] ?? ''); $j += 2; continue; }
+                if ($cj === '(') $depth++;
+                if ($cj === ')') { $depth--; if ($depth === 0) { $j++; break; } }
+                $buf .= $cj; $j++;
+            }
+            $tokens[] = ['t' => 'STR', 'v' => $buf];
+            $i = $j;
+            continue;
+        }
+
+        if ($c === '/') {
+            $j = $i + 1;
+            while ($j < $n && strpbrk($s[$j], " \n\r\t/[]<>()") === false) $j++;
+            $tokens[] = ['t' => 'NAME', 'v' => substr($s, $i + 1, $j - $i - 1)];
+            $i = $j;
+            continue;
+        }
+
+        if ($c === '[' || $c === ']' || $c === '<' || $c === '>') { $i++; continue; }
+
+        if (strpbrk($c, '0123456789+-.') !== false) {
+            $j = $i + 1;
+            while ($j < $n && strpbrk($s[$j], '0123456789+-.eE') !== false) $j++;
+            $tokens[] = ['t' => 'NUM', 'v' => (float)substr($s, $i, $j - $i)];
+            $i = $j;
+            continue;
+        }
+
+        $j = $i + 1;
+        while ($j < $n && strpbrk($s[$j], " \n\r\t/[]()<>") === false) $j++;
+        $tokens[] = ['t' => 'OP', 'v' => substr($s, $i, $j - $i)];
+        $i = $j;
+    }
+    return $tokens;
+}
+
+/** Decodifica escapes de un string literal PDF (\ddd octal, \(, \), \\) y lo pasa a UTF-8. */
+function _lp_pdfDecodeStr(string $raw): string {
+    $bytes = '';
+    $n     = strlen($raw);
+    for ($i = 0; $i < $n; $i++) {
+        $c = $raw[$i];
+        if ($c === '\\' && $i + 1 < $n) {
+            $next = $raw[$i + 1];
+            if ($next >= '0' && $next <= '7') {
+                $oct = $next;
+                $k   = $i + 2;
+                for ($cnt = 0; $cnt < 2 && $k < $n && $raw[$k] >= '0' && $raw[$k] <= '7'; $cnt++, $k++) $oct .= $raw[$k];
+                $bytes .= chr(octdec($oct) & 0xFF);
+                $i = $k - 1;
+                continue;
+            }
+            $map = ['(' => '(', ')' => ')', '\\' => '\\', 'n' => "\n", 'r' => "\r", 't' => "\t", 'b' => "\x08", 'f' => "\x0C"];
+            $bytes .= $map[$next] ?? $next;
+            $i++;
+            continue;
+        }
+        $bytes .= $c;
+    }
+    $utf8 = @iconv('ISO-8859-1', 'UTF-8//IGNORE', $bytes);
+    return $utf8 !== false ? $utf8 : $bytes;
+}
+
+/**
+ * Interpreta el stream de tokens llevando el estado gráfico mínimo necesario
+ * (pila q/Q, color rg, fuente Tf, traslación cm) y emite una celda por cada
+ * operador Tj, fusionando en una sola celda las líneas que un mismo bloque de
+ * texto parte con T* (p.ej. una descripción que ocupa dos renglones).
+ */
+function _lp_pdfCeldas(array $tokens): array {
+    $pila = [];
+    $rg = $font = $size = $cmX = $cmY = null;
+    $operandos = [];
+    $celdas    = [];
+
+    foreach ($tokens as $tok) {
+        if ($tok['t'] !== 'OP') { $operandos[] = $tok; continue; }
+        $op = $tok['v'];
+
+        if ($op === 'q') {
+            $pila[] = [$rg, $font, $size, $cmX, $cmY];
+        } elseif ($op === 'Q') {
+            $st = array_pop($pila);
+            if ($st !== null) [$rg, $font, $size, $cmX, $cmY] = $st;
+        } elseif ($op === 'cm') {
+            $nums = array_values(array_map(fn($o) => $o['v'], array_filter($operandos, fn($o) => $o['t'] === 'NUM')));
+            if (count($nums) >= 6) { $cmX = $nums[count($nums) - 2]; $cmY = $nums[count($nums) - 1]; }
+        } elseif ($op === 'rg') {
+            $nums = array_values(array_map(fn($o) => $o['v'], array_filter($operandos, fn($o) => $o['t'] === 'NUM')));
+            $rg = implode(' ', $nums);
+        } elseif ($op === 'Tf') {
+            $names = array_values(array_map(fn($o) => $o['v'], array_filter($operandos, fn($o) => $o['t'] === 'NAME')));
+            $nums  = array_values(array_map(fn($o) => $o['v'], array_filter($operandos, fn($o) => $o['t'] === 'NUM')));
+            if ($names) $font = end($names);
+            if ($nums)  $size = end($nums);
+        } elseif ($op === 'Tj') {
+            $strs = array_values(array_filter($operandos, fn($o) => $o['t'] === 'STR'));
+            if ($strs) {
+                $texto = end($strs)['v'];
+                $ultima = end($celdas);
+                if ($ultima !== false && $ultima['x'] === $cmX && $ultima['y'] === $cmY
+                    && $ultima['rg'] === $rg && $ultima['font'] === $font && $ultima['size'] === $size) {
+                    $celdas[array_key_last($celdas)]['texto'] .= ' ' . $texto;
+                } else {
+                    $celdas[] = ['texto' => $texto, 'rg' => $rg, 'font' => $font, 'size' => $size, 'x' => $cmX, 'y' => $cmY];
+                }
+            }
+        }
+        $operandos = [];
+    }
+
+    return $celdas;
+}
+
+/**
+ * Parsea el catálogo PDF público de aqv.soysowi.com (lista l56 — el proveedor
+ * bloquea la descarga automática, así que se sube el PDF manualmente). Es un
+ * PDF de texto real generado con tablas: cada sección lleva un encabezado de
+ * marca (fuente F2, tamaño 12) seguido de filas de 4 celdas en fuente F1,
+ * tamaño 9, color negro puro — Código, Descripción, Presentación, Precio, en
+ * ese orden fijo. Frágil ante un cambio de plantilla del proveedor: si deja
+ * de encontrar productos, revisar si cambiaron fuente/tamaño/orden de columnas.
+ */
+function parsearPDFCatalogoProveedor(string $pdfBytes): array {
+    $contenido = _lp_pdfExtraerContenido($pdfBytes);
+    if ($contenido === '') return [];
+
+    $tokens = _lp_pdfTokenizar($contenido);
+    $celdas = _lp_pdfCeldas($tokens);
+
+    $productos    = [];
+    $marcaActual  = 'SIN MARCA';
+    $buffer       = [];
+
+    foreach ($celdas as $c) {
+        if ($c['font'] === 'F2' && $c['size'] == 12) {
+            $marca = _lp_pdfDecodeStr($c['texto']);
+            $marca = preg_replace('/^[^\p{L}\p{N}]+/u', '', $marca);
+            $marcaActual = trim($marca) !== '' ? trim($marca) : 'SIN MARCA';
+            $buffer = [];
+            continue;
+        }
+        if ($c['font'] !== 'F1' || $c['size'] != 9 || $c['rg'] !== '0 0 0') continue;
+
+        $buffer[] = preg_replace('/\s+/u', ' ', trim(_lp_pdfDecodeStr($c['texto'])));
+        if (count($buffer) < 4) continue;
+
+        [$codigo, $descripcion, $presentacion, $precioTxt] = $buffer;
+        $buffer = [];
+
+        if (!preg_match('/^\d+$/', $codigo)) continue;
+        if (!preg_match('/^\$[\d,.]+$/', $precioTxt)) continue;
+
+        $precioUnidad = (float)str_replace(',', '', ltrim($precioTxt, '$'));
+        if ($descripcion === '' || $precioUnidad <= 0) continue;
+
+        $pack = null;
+        if ($presentacion !== '-' && preg_match('/x\s*(\d+)/i', $presentacion, $pm)) {
+            $pack = (int)$pm[1];
+        }
+
+        $productos[] = [
+            'nombre'        => $descripcion,
+            'codigo'        => $codigo,
+            'marca'         => $marcaActual,
+            'pack'          => $pack,
+            'precio_unidad' => $precioUnidad,
+        ];
+    }
+
+    return $productos;
+}

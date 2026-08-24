@@ -51,7 +51,7 @@ if (!$isPost && $step === 'confirm') {
             <p style="font-size:12px; color:var(--text-soft); margin-bottom:10px;">
                 Si a alguna lista base no se le puede descargar el catálogo automáticamente
                 (ej. el proveedor bloquea al servidor), podés abrir el link vos mismo, guardar
-                la página o el JSON, y subirlo acá como respaldo — se procesa igual que la descarga automática.
+                la página, el JSON o el PDF, y subirlo acá como respaldo — se procesa igual que la descarga automática.
             </p>
             <?php endif; ?>
             <form method="POST" enctype="multipart/form-data" action="?step=preview">
@@ -92,7 +92,7 @@ if (!$isPost && $step === 'confirm') {
                     <td style="padding:6px 8px;">
                         <?php if ($esBase): ?>
                         <input type="file" name="archivo_manual[<?= (int)$l['id'] ?>]"
-                               accept=".json,.html,.htm,.txt" style="font-size:11px; max-width:220px;">
+                               accept=".json,.html,.htm,.txt,.pdf" style="font-size:11px; max-width:220px;">
                         <?php else: ?>
                         <span class="text-muted" style="font-size:11px;">—</span>
                         <?php endif; ?>
@@ -236,18 +236,23 @@ if ($step === 'preview' && ($_POST['step'] ?? '') !== 'apply') {
             $productos = [];
             $errorMsg  = null;
 
-            $json = json_decode((string)$raw, true);
-            if (is_array($json) && isset($json['bodegas'])) {
-                $estado = $json['estado'] ?? null;
-                if ($estado !== null && $estado !== 'vigente') {
-                    $errorMsg = 'El archivo subido indica un catálogo vencido o no vigente';
-                } else {
-                    $productos = parsearJSONCatalogoProveedor($json);
-                    if (empty($productos)) $errorMsg = 'No se encontraron productos en el JSON subido';
-                }
+            if (substr((string)$raw, 0, 5) === '%PDF-') {
+                $productos = parsearPDFCatalogoProveedor((string)$raw);
+                if (empty($productos)) $errorMsg = 'No se encontraron productos en el PDF subido';
             } else {
-                $productos = parsearHTMLProveedor((string)$raw);
-                if (empty($productos)) $errorMsg = 'No se encontraron productos ni en JSON ni en HTML del archivo subido';
+                $json = json_decode((string)$raw, true);
+                if (is_array($json) && isset($json['bodegas'])) {
+                    $estado = $json['estado'] ?? null;
+                    if ($estado !== null && $estado !== 'vigente') {
+                        $errorMsg = 'El archivo subido indica un catálogo vencido o no vigente';
+                    } else {
+                        $productos = parsearJSONCatalogoProveedor($json);
+                        if (empty($productos)) $errorMsg = 'No se encontraron productos en el JSON subido';
+                    }
+                } else {
+                    $productos = parsearHTMLProveedor((string)$raw);
+                    if (empty($productos)) $errorMsg = 'No se encontraron productos ni en JSON, HTML o PDF del archivo subido';
+                }
             }
 
             if ($errorMsg !== null) {
