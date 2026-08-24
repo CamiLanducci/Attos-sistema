@@ -268,60 +268,6 @@ function _lp_pdfExtraerContenido(string $pdfBytes): string {
     return $contenido;
 }
 
-/**
- * Tokeniza un content stream PDF: strings (...), nombres /Foo, números y
- * operadores sueltos (q, Q, cm, rg, Tf, Tj, etc). Suficiente para el
- * subconjunto de operadores que generan las tablas de precios — no es un
- * intérprete PDF completo (ignora arrays TJ, dicts, matrices no triviales).
- */
-function _lp_pdfTokenizar(string $s): array {
-    $tokens = [];
-    $n      = strlen($s);
-    $i      = 0;
-    while ($i < $n) {
-        $c = $s[$i];
-        if ($c === ' ' || $c === "\n" || $c === "\r" || $c === "\t") { $i++; continue; }
-
-        if ($c === '(') {
-            $depth = 1; $j = $i + 1; $buf = '';
-            while ($j < $n && $depth > 0) {
-                $cj = $s[$j];
-                if ($cj === '\\') { $buf .= $cj . ($s[$j + 1] ?? ''); $j += 2; continue; }
-                if ($cj === '(') $depth++;
-                if ($cj === ')') { $depth--; if ($depth === 0) { $j++; break; } }
-                $buf .= $cj; $j++;
-            }
-            $tokens[] = ['t' => 'STR', 'v' => $buf];
-            $i = $j;
-            continue;
-        }
-
-        if ($c === '/') {
-            $j = $i + 1;
-            while ($j < $n && strpbrk($s[$j], " \n\r\t/[]<>()") === false) $j++;
-            $tokens[] = ['t' => 'NAME', 'v' => substr($s, $i + 1, $j - $i - 1)];
-            $i = $j;
-            continue;
-        }
-
-        if ($c === '[' || $c === ']' || $c === '<' || $c === '>') { $i++; continue; }
-
-        if (strpbrk($c, '0123456789+-.') !== false) {
-            $j = $i + 1;
-            while ($j < $n && strpbrk($s[$j], '0123456789+-.eE') !== false) $j++;
-            $tokens[] = ['t' => 'NUM', 'v' => (float)substr($s, $i, $j - $i)];
-            $i = $j;
-            continue;
-        }
-
-        $j = $i + 1;
-        while ($j < $n && strpbrk($s[$j], " \n\r\t/[]()<>") === false) $j++;
-        $tokens[] = ['t' => 'OP', 'v' => substr($s, $i, $j - $i)];
-        $i = $j;
-    }
-    return $tokens;
-}
-
 /** Decodifica escapes de un string literal PDF (\ddd octal, \(, \), \\) y lo pasa a UTF-8. */
 function _lp_pdfDecodeStr(string $raw): string {
     $bytes = '';
@@ -358,20 +304,70 @@ function _lp_pdfDecodeStr(string $raw): string {
 }
 
 /**
- * Interpreta el stream de tokens llevando el estado gráfico mínimo necesario
- * (pila q/Q, color rg, fuente Tf, traslación cm) y emite una celda por cada
- * operador Tj, fusionando en una sola celda las líneas que un mismo bloque de
- * texto parte con T* (p.ej. una descripción que ocupa dos renglones).
+ * Tokeniza un content stream PDF (strings (...), nombres /Foo, números y
+ * operadores sueltos: q, Q, cm, rg, Tf, Tj, etc — suficiente para el
+ * subconjunto que generan las tablas de precios, no es un intérprete PDF
+ * completo) e interpreta el estado gráfico mínimo necesario (pila q/Q, color
+ * rg, fuente Tf, traslación cm) en el mismo pasaje, emitiendo una celda por
+ * cada operador Tj (fusionando en una sola celda las líneas que un mismo
+ * bloque de texto parte con T*, p.ej. una descripción de dos renglones).
+ *
+ * Tokenizar a un array separado y después iterarlo (como hacía esto antes)
+ * se probó en producción con memory_limit ajustado (~90MB) y reventó: un PDF
+ * de sólo 134KB generó 247.000 tokens, y esa sola lista de arrays chicos ya
+ * pesaba más que el límite. Haciéndolo en un solo pasaje, lo único que se
+ * acumula en memoria es $celdas (algunos miles de filas) y $operandos (un
+ * puñado de valores entre un operador y el siguiente).
  */
-function _lp_pdfCeldas(array $tokens): array {
+function _lp_pdfExtraerCeldas(string $s): array {
+    $n = strlen($s);
+    $i = 0;
+
     $pila = [];
     $rg = $font = $size = $cmX = $cmY = null;
     $operandos = [];
     $celdas    = [];
 
-    foreach ($tokens as $tok) {
-        if ($tok['t'] !== 'OP') { $operandos[] = $tok; continue; }
-        $op = $tok['v'];
+    while ($i < $n) {
+        $c = $s[$i];
+        if ($c === ' ' || $c === "\n" || $c === "\r" || $c === "\t") { $i++; continue; }
+
+        if ($c === '(') {
+            $depth = 1; $j = $i + 1; $buf = '';
+            while ($j < $n && $depth > 0) {
+                $cj = $s[$j];
+                if ($cj === '\\') { $buf .= $cj . ($s[$j + 1] ?? ''); $j += 2; continue; }
+                if ($cj === '(') $depth++;
+                if ($cj === ')') { $depth--; if ($depth === 0) { $j++; break; } }
+                $buf .= $cj; $j++;
+            }
+            $operandos[] = ['t' => 'STR', 'v' => $buf];
+            $i = $j;
+            continue;
+        }
+
+        if ($c === '/') {
+            $j = $i + 1;
+            while ($j < $n && strpbrk($s[$j], " \n\r\t/[]<>()") === false) $j++;
+            $operandos[] = ['t' => 'NAME', 'v' => substr($s, $i + 1, $j - $i - 1)];
+            $i = $j;
+            continue;
+        }
+
+        if ($c === '[' || $c === ']' || $c === '<' || $c === '>') { $i++; continue; }
+
+        if (strpbrk($c, '0123456789+-.') !== false) {
+            $j = $i + 1;
+            while ($j < $n && strpbrk($s[$j], '0123456789+-.eE') !== false) $j++;
+            $operandos[] = ['t' => 'NUM', 'v' => (float)substr($s, $i, $j - $i)];
+            $i = $j;
+            continue;
+        }
+
+        $j = $i + 1;
+        while ($j < $n && strpbrk($s[$j], " \n\r\t/[]()<>") === false) $j++;
+        $op = substr($s, $i, $j - $i);
+        $i  = $j;
 
         if ($op === 'q') {
             $pila[] = [$rg, $font, $size, $cmX, $cmY];
@@ -439,11 +435,8 @@ function parsearPDFCatalogoProveedor(string $pdfBytes, ?callable $onProgress = n
         $contenido = substr($contenido, 0, 10 * 1024 * 1024);
     }
 
-    $onProgress('tokenizando', []);
-    $tokens = _lp_pdfTokenizar($contenido);
-    $onProgress('tokenizado', ['tokens' => count($tokens)]);
-
-    $celdas = _lp_pdfCeldas($tokens);
+    $onProgress('tokenizando y armando celdas', []);
+    $celdas = _lp_pdfExtraerCeldas($contenido);
     $onProgress('celdas armadas', ['celdas' => count($celdas)]);
 
     $productos    = [];
