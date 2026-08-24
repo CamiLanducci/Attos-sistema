@@ -221,6 +221,14 @@ $cuentaLabel = ['area_520' => 'Area 520', 'alfre' => 'Cuenta Alfre'];
 <!-- ── Mi caja ──────────────────────────────────────────────────── -->
 <div id="caja-tab-mi-caja">
 
+    <!-- DEBUG TEMPORAL: sacar una vez resuelto el problema del saldo inicial -->
+    <div style="font-family:monospace; font-size:11px; background:#fff3cd; border:1px solid #e0c060; padding:8px 12px; margin-bottom:12px; border-radius:4px;">
+        DEBUG — miId=<?= $miId ?> |
+        saldoIniUsuarios tiene <?= count($saldoIniUsuarios) ?> fila(s): <?= e(json_encode($saldoIniUsuarios)) ?> |
+        miIni=<?= e(json_encode($miIni)) ?> |
+        miMov=<?= e(json_encode($miMov)) ?>
+    </div>
+
     <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:16px; max-width:560px;">
         <div class="card" style="text-align:center; padding:18px 10px;">
             <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:6px;">💵 Mi efectivo</div>
