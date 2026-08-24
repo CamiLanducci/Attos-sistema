@@ -6,6 +6,11 @@ require_once __DIR__ . '/_parser_proveedor.php';
 set_time_limit(0);
 ignore_user_abort(true);
 
+// Bajas de precio menores a este umbral se informan pero no se aplican (para
+// no pisar precios por errores puntuales del proveedor). Bajas iguales o
+// mayores sí se aplican, porque a esa magnitud es casi seguro un cambio real.
+const UMBRAL_BAJA_APLICABLE_PCT = 20;
+
 $db          = getDB();
 $todasListas = $db->query("SELECT * FROM listas ORDER BY margen ASC")->fetchAll();
 $listasPorId = array_column($todasListas, null, 'id');
@@ -518,10 +523,12 @@ if ($step === 'preview' && ($_POST['step'] ?? '') !== 'apply') {
                     </thead>
                     <tbody>
                     <?php foreach ($changes as $c):
-                        $sube    = $c['pct'] > 0;
-                        $pctFmt  = ($sube ? '+' : '') . number_format($c['pct'], 1) . '%';
-                        $clrPct  = $sube ? '#c0392b' : '#27ae60';
-                        $rowBg   = $sube ? '#fff5f5' : '#f0fff4';
+                        $sube        = $c['pct'] > 0;
+                        $bajaFuerte  = $c['pct'] <= -UMBRAL_BAJA_APLICABLE_PCT;
+                        $seAplica    = $sube || $bajaFuerte;
+                        $pctFmt      = ($sube ? '+' : '') . number_format($c['pct'], 1) . '%';
+                        $clrPct      = $sube ? '#c0392b' : '#27ae60';
+                        $rowBg       = $sube ? '#fff5f5' : '#f0fff4';
                     ?>
                     <tr style="border-bottom:1px solid var(--border); background:<?= $rowBg ?>;">
                         <td style="padding:5px 8px; color:#888; font-size:11px; white-space:nowrap;"><?= e($c['codigo']) ?></td>
@@ -531,10 +538,12 @@ if ($step === 'preview' && ($_POST['step'] ?? '') !== 'apply') {
                         <td style="padding:5px 8px; text-align:right; font-weight:600; white-space:nowrap;"><?= precio($c['nuevo']) ?></td>
                         <td style="padding:5px 8px; text-align:right; font-weight:700; color:<?= $clrPct ?>; white-space:nowrap;"><?= $pctFmt ?></td>
                         <td style="padding:5px 8px; text-align:center; white-space:nowrap;">
-                            <?php if ($sube): ?>
+                            <?php if ($seAplica && $sube): ?>
                             <span class="badge badge-success" style="font-size:10px;">sí</span>
+                            <?php elseif ($seAplica): ?>
+                            <span class="badge badge-success" style="font-size:10px;" title="Baja de <?= UMBRAL_BAJA_APLICABLE_PCT ?>% o más — se aplica igual que una suba.">sí (baja fuerte)</span>
                             <?php else: ?>
-                            <span class="badge badge-gray" style="font-size:10px;" title="El sistema avisa la baja pero no reduce el precio automáticamente. Se mantiene el precio anterior.">no (baja)</span>
+                            <span class="badge badge-gray" style="font-size:10px;" title="El sistema avisa la baja pero no reduce el precio automáticamente porque es menor al <?= UMBRAL_BAJA_APLICABLE_PCT ?>%. Se mantiene el precio anterior.">no (baja)</span>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -543,8 +552,9 @@ if ($step === 'preview' && ($_POST['step'] ?? '') !== 'apply') {
                 </table>
             </div>
             <p style="font-size:11.5px; color:var(--text-soft); margin:0 0 16px;">
-                Las bajas de precio se informan pero no se aplican automáticamente — se mantiene el precio anterior
-                de la lista. Si una baja es correcta, actualizala manualmente en el producto.
+                Las bajas menores al <?= UMBRAL_BAJA_APLICABLE_PCT ?>% se informan pero no se aplican automáticamente
+                — se mantiene el precio anterior. Las bajas del <?= UMBRAL_BAJA_APLICABLE_PCT ?>% o más sí se aplican,
+                igual que una suba. Si una baja omitida es correcta, actualizala manualmente en el producto.
             </p>
             <?php endif; ?>
 
@@ -697,11 +707,12 @@ if ($isPost && ($_POST['step'] ?? '') === 'apply') {
         $cntBajasOmitidas = 0;
         $cntPreciosModif  = count($data['changes']) + count($data['new_prods']);
 
-        // Códigos cuyo precio bajó respecto al actual: se avisa pero NO se aplica —
-        // se conserva el precio vigente en lista_precios.
+        // Códigos cuyo precio bajó respecto al actual por debajo del umbral: se
+        // avisa pero NO se aplica — se conserva el precio vigente en lista_precios.
+        // Bajas de UMBRAL_BAJA_APLICABLE_PCT % o más sí se aplican (no quedan acá).
         $bajaCodigos = [];
         foreach ($data['changes'] as $c) {
-            if ($c['pct'] < 0) $bajaCodigos[$c['codigo']] = true;
+            if ($c['pct'] < 0 && $c['pct'] > -UMBRAL_BAJA_APLICABLE_PCT) $bajaCodigos[$c['codigo']] = true;
         }
 
         $db->beginTransaction();
