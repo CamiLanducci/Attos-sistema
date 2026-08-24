@@ -238,23 +238,34 @@ if ($step === 'preview' && ($_POST['step'] ?? '') !== 'apply') {
             $productos = [];
             $errorMsg  = null;
 
-            if (substr((string)$raw, 0, 5) === '%PDF-') {
-                $productos = parsearPDFCatalogoProveedor((string)$raw);
-                if (empty($productos)) $errorMsg = 'No se encontraron productos en el PDF subido';
-            } else {
-                $json = json_decode((string)$raw, true);
-                if (is_array($json) && isset($json['bodegas'])) {
-                    $estado = $json['estado'] ?? null;
-                    if ($estado !== null && $estado !== 'vigente') {
-                        $errorMsg = 'El archivo subido indica un catálogo vencido o no vigente';
-                    } else {
-                        $productos = parsearJSONCatalogoProveedor($json);
-                        if (empty($productos)) $errorMsg = 'No se encontraron productos en el JSON subido';
-                    }
+            // Envuelto en try/catch porque un error fatal acá (ej. falta una
+            // extensión de PHP como zlib) mata el script sin dejar rastro en
+            // pantalla si display_errors está apagado — con esto al menos se
+            // ve el motivo en vez de quedar la página muda en "Analizando...".
+            try {
+                if (substr((string)$raw, 0, 5) === '%PDF-') {
+                    echo "  (PDF detectado, " . strlen($raw) . " bytes, extrayendo contenido...)\n";
+                    flush();
+                    $productos = parsearPDFCatalogoProveedor((string)$raw);
+                    if (empty($productos)) $errorMsg = 'No se encontraron productos en el PDF subido';
                 } else {
-                    $productos = parsearHTMLProveedor((string)$raw);
-                    if (empty($productos)) $errorMsg = 'No se encontraron productos ni en JSON, HTML o PDF del archivo subido';
+                    $json = json_decode((string)$raw, true);
+                    if (is_array($json) && isset($json['bodegas'])) {
+                        $estado = $json['estado'] ?? null;
+                        if ($estado !== null && $estado !== 'vigente') {
+                            $errorMsg = 'El archivo subido indica un catálogo vencido o no vigente';
+                        } else {
+                            $productos = parsearJSONCatalogoProveedor($json);
+                            if (empty($productos)) $errorMsg = 'No se encontraron productos en el JSON subido';
+                        }
+                    } else {
+                        $productos = parsearHTMLProveedor((string)$raw);
+                        if (empty($productos)) $errorMsg = 'No se encontraron productos ni en JSON, HTML o PDF del archivo subido';
+                    }
                 }
+            } catch (\Throwable $e) {
+                $errorMsg = 'Error interno procesando el archivo: ' . $e->getMessage()
+                    . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
             }
 
             if ($errorMsg !== null) {
