@@ -219,12 +219,33 @@ function _lp_pdfExtraerContenido(string $pdfBytes): string {
     $maxRawStreamBytes     = 2 * 1024 * 1024; // streams de texto reales no llegan a esto
     $maxDecodedStreamBytes = 4 * 1024 * 1024; // límite pasado a gzuncompress()
 
+    // Cortes de seguridad "de última instancia": un catálogo real no tiene
+    // miles de streams ni tarda más de unos segundos en escanearse. Si algo
+    // no previsto (byte raro, PDF corrupto, offset que no avanza) hace que
+    // esto no termine, mejor devolver lo juntado hasta ahora que colgar el
+    // request indefinidamente (esto fue justamente lo que se observó: la
+    // importación se quedaba "congelada" sin ningún error ni timeout).
+    $maxIteraciones     = 20000;
+    $limiteSegundos     = 15;
+    $maxContenidoBytes  = 10 * 1024 * 1024; // tope total, por si el offset no avanzara y se re-procesara el mismo stream
+    $inicio             = microtime(true);
+
     $contenido = '';
     $offset    = 0;
+    $iter      = 0;
     while (preg_match('/(?<!d)stream\r?\n/', $pdfBytes, $m, PREG_OFFSET_CAPTURE, $offset)) {
+        if (++$iter > $maxIteraciones
+            || (microtime(true) - $inicio) > $limiteSegundos
+            || strlen($contenido) > $maxContenidoBytes) break;
+
         $start = $m[0][1] + strlen($m[0][0]);
         $end   = strpos($pdfBytes, 'endstream', $start);
         if ($end === false) break;
+
+        // El offset del que buscamos el próximo "stream" SIEMPRE tiene que
+        // avanzar más allá de este; si no, cortamos ya (evita reprocesar el
+        // mismo bloque en un bucle sin fin ante algún byte inesperado).
+        if ($end + 9 <= $offset) break;
 
         if ($end - $start > $maxRawStreamBytes) {
             // Casi seguro una imagen o fuente embebida: se salta sin descomprimir.
@@ -399,6 +420,14 @@ function _lp_pdfCeldas(array $tokens): array {
 function parsearPDFCatalogoProveedor(string $pdfBytes): array {
     $contenido = _lp_pdfExtraerContenido($pdfBytes);
     if ($contenido === '') return [];
+
+    // Tope defensivo: un catálogo real, ya filtrado a sólo streams de texto,
+    // no debería acercarse a esto — si pasa, algo se está juntando de más
+    // (ver _lp_pdfExtraerContenido) y tokenizar todo igual podría tardar
+    // demasiado.
+    if (strlen($contenido) > 10 * 1024 * 1024) {
+        $contenido = substr($contenido, 0, 10 * 1024 * 1024);
+    }
 
     $tokens = _lp_pdfTokenizar($contenido);
     $celdas = _lp_pdfCeldas($tokens);
